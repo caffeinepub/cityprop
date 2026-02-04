@@ -9,11 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MapPin, Loader2, Navigation, User, Car, Info, CreditCard, ShoppingBag, Hospital, PartyPopper, Briefcase, Package, Languages } from 'lucide-react';
+import { MapPin, Loader2, Navigation, User, Car, Info, CreditCard, ShoppingBag, Hospital, PartyPopper, Briefcase, Package, Languages, AlertTriangle } from 'lucide-react';
 import { UserProfile, ShoppingItem, Trip, TripStatus, PaymentStatus } from '../backend';
 import { useCreateDepositCheckoutSession, useGetAllDrivers, useCreateTrip } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { toast } from 'sonner';
+import { calculateDistance, formatDistance } from '../utils/distance';
 
 interface ServiceSelectionFormProps {
   userProfile: UserProfile;
@@ -41,19 +42,24 @@ const SERVICES: ServiceType[] = [
 ];
 
 const COMPANY_FEE = 7;
+const MAX_DISTANCE_MILES = 10;
+const DISTANCE_BASED_DEPOSIT = 10;
+const DISTANCE_BASED_SERVICE_FEE = 25;
 
 export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceSelectionFormProps) {
   const { identity } = useInternetIdentity();
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
-  const [startLocation, setStartLocation] = useState('');
-  const [endLocation, setEndLocation] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [dropoffAddress, setDropoffAddress] = useState('');
   const [estimatedHours, setEstimatedHours] = useState('2');
   const [notes, setNotes] = useState('');
   const [translatorNeeded, setTranslatorNeeded] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('card');
-  const [gettingLocation, setGettingLocation] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [gettingPickupLocation, setGettingPickupLocation] = useState(false);
+  const [gettingDropoffLocation, setGettingDropoffLocation] = useState(false);
+  const [pickupCoordinates, setPickupCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [dropoffCoordinates, setDropoffCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [driverPhotos, setDriverPhotos] = useState<Map<string, string>>(new Map());
 
   const createDepositCheckout = useCreateDepositCheckoutSession();
@@ -61,7 +67,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const { data: drivers = [], isLoading: driversLoading } = useGetAllDrivers();
 
   useEffect(() => {
-    setCurrentLocation({
+    setPickupCoordinates({
       latitude: userProfile.userCoordinates.latitude,
       longitude: userProfile.userCoordinates.longitude,
     });
@@ -84,32 +90,81 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
     }
   }, [drivers]);
 
-  const handleUpdateLocation = () => {
+  const handleCapturePickupLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported');
       return;
     }
 
-    setGettingLocation(true);
+    setGettingPickupLocation(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCurrentLocation({
+        setPickupCoordinates({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
-        setGettingLocation(false);
-        toast.success('Location updated');
+        setGettingPickupLocation(false);
+        toast.success('Pickup location captured');
       },
       (error) => {
-        setGettingLocation(false);
-        toast.error('Failed to get location: ' + error.message);
+        setGettingPickupLocation(false);
+        toast.error('Failed to get pickup location: ' + error.message);
       }
     );
+  };
+
+  const handleCaptureDropoffLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported');
+      return;
+    }
+
+    setGettingDropoffLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setDropoffCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setGettingDropoffLocation(false);
+        toast.success('Dropoff location captured');
+      },
+      (error) => {
+        setGettingDropoffLocation(false);
+        toast.error('Failed to get dropoff location: ' + error.message);
+      }
+    );
+  };
+
+  const calculateDistanceMiles = (): number | null => {
+    if (!pickupCoordinates || !dropoffCoordinates) return null;
+    return calculateDistance(
+      pickupCoordinates.latitude,
+      pickupCoordinates.longitude,
+      dropoffCoordinates.latitude,
+      dropoffCoordinates.longitude
+    );
+  };
+
+  const isDistanceBasedService = (): boolean => {
+    return selectedService?.id === 'shopping-for' || selectedService?.id === 'pickup';
   };
 
   const calculateEstimate = () => {
     if (!selectedService) return { serviceFee: 0, deposit: 0, total: 0, driverEarnings: 0 };
     
+    const distanceMiles = calculateDistanceMiles();
+    
+    // For distance-based services (shopping-for, pickup) with distance <= 10 miles
+    if (isDistanceBasedService() && distanceMiles !== null && distanceMiles <= MAX_DISTANCE_MILES) {
+      const deposit = DISTANCE_BASED_DEPOSIT;
+      const serviceFee = DISTANCE_BASED_SERVICE_FEE;
+      const total = deposit + serviceFee;
+      const driverEarnings = serviceFee - COMPANY_FEE;
+      return { serviceFee, deposit, total, driverEarnings };
+    }
+    
+    // For hourly services, use original pricing
     const deposit = selectedService.deposit;
     let serviceFee = 0;
     
@@ -129,7 +184,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedService || !startLocation.trim() || !endLocation.trim()) {
+    if (!selectedService || !pickupAddress.trim() || !dropoffAddress.trim()) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -144,6 +199,25 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
       return;
     }
 
+    // For distance-based services, require coordinates
+    if (isDistanceBasedService()) {
+      if (!pickupCoordinates || !dropoffCoordinates) {
+        toast.error('Please capture both pickup and dropoff coordinates for distance calculation');
+        return;
+      }
+
+      const distanceMiles = calculateDistanceMiles();
+      if (distanceMiles === null) {
+        toast.error('Unable to calculate distance. Please capture coordinates.');
+        return;
+      }
+
+      if (distanceMiles > MAX_DISTANCE_MILES) {
+        toast.error(`Distance exceeds ${MAX_DISTANCE_MILES} miles. Bookings are limited to ${MAX_DISTANCE_MILES} miles.`);
+        return;
+      }
+    }
+
     const estimate = calculateEstimate();
     const selectedDriver = drivers.find(d => d.driverId.toString() === selectedDriverId);
 
@@ -152,6 +226,8 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
       return;
     }
 
+    const distanceMiles = calculateDistanceMiles();
+
     try {
       // Create trip record first
       const tripId = BigInt(Date.now());
@@ -159,12 +235,12 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
         tripId,
         clientId: identity.getPrincipal(),
         driverId: selectedDriver.driverId,
-        startLocation: currentLocation || userProfile.userCoordinates,
-        endLocation: undefined,
+        startLocation: pickupCoordinates || userProfile.userCoordinates,
+        endLocation: dropoffCoordinates || undefined,
         startTime: BigInt(Date.now()),
         endTime: undefined,
         tripStatus: TripStatus.pending,
-        distance: undefined,
+        distance: distanceMiles || 0,
         duration: undefined,
         totalCost: estimate.total,
         depositPaid: false,
@@ -179,12 +255,12 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
         statusUpdate: undefined,
         paymentStatus: PaymentStatus.pending,
         locationDetails: {
-          pickupAddress: startLocation,
-          pickupCoordinates: currentLocation || userProfile.userCoordinates,
-          dropoffAddress: endLocation,
-          dropoffCoordinates: undefined,
+          pickupAddress: pickupAddress,
+          pickupCoordinates: pickupCoordinates || undefined,
+          dropoffAddress: dropoffAddress,
+          dropoffCoordinates: dropoffCoordinates || undefined,
         },
-        specialRequests: `Service: ${selectedService.name}${notes ? `\nNotes: ${notes}` : ''}${selectedService.isHourly ? `\nEstimated hours: ${estimatedHours}` : ''}`,
+        specialRequests: `Service: ${selectedService.name}${notes ? `\nNotes: ${notes}` : ''}${selectedService.isHourly ? `\nEstimated hours: ${estimatedHours}` : ''}${distanceMiles ? `\nDistance: ${formatDistance(distanceMiles)}` : ''}`,
         translatorNeeded,
         helpLoadingItems: undefined,
       };
@@ -195,8 +271,8 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
       const depositItems: ShoppingItem[] = [
         {
           productName: `${selectedService.name} - Deposit`,
-          productDescription: `Deposit for ${selectedService.name} (card required)`,
-          priceInCents: BigInt(selectedService.deposit * 100),
+          productDescription: `Non-refundable deposit for ${selectedService.name}`,
+          priceInCents: BigInt(estimate.deposit * 100),
           quantity: BigInt(1),
           currency: 'usd',
         },
@@ -221,6 +297,9 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   };
 
   const estimate = calculateEstimate();
+  const distanceMiles = calculateDistanceMiles();
+  const showDistanceWarning = isDistanceBasedService() && distanceMiles !== null && distanceMiles > MAX_DISTANCE_MILES;
+  const canSubmit = !showDistanceWarning && (!isDistanceBasedService() || (pickupCoordinates && dropoffCoordinates));
 
   if (!selectedService) {
     return (
@@ -272,7 +351,12 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
           <Alert className="border-primary/30 bg-primary/5">
             <Info className="h-4 w-4 text-primary" />
             <AlertDescription>
-              <strong>Service:</strong> {selectedService.name} - ${selectedService.deposit} deposit (card required) + {selectedService.rate}
+              <strong>Service:</strong> {selectedService.name}
+              {isDistanceBasedService() && distanceMiles !== null && distanceMiles <= MAX_DISTANCE_MILES ? (
+                <> - ${DISTANCE_BASED_DEPOSIT} deposit + ${DISTANCE_BASED_SERVICE_FEE} service fee (up to {MAX_DISTANCE_MILES} miles)</>
+              ) : (
+                <> - ${selectedService.deposit} deposit + {selectedService.rate}</>
+              )}
             </AlertDescription>
           </Alert>
 
@@ -334,14 +418,14 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             )}
           </div>
 
-          {/* Start Location */}
+          {/* Pickup Address */}
           <div className="space-y-2">
-            <Label htmlFor="start-location">Start Location *</Label>
+            <Label htmlFor="pickup-address">Pickup Address *</Label>
             <div className="flex gap-2">
               <Input
-                id="start-location"
-                value={startLocation}
-                onChange={(e) => setStartLocation(e.target.value)}
+                id="pickup-address"
+                value={pickupAddress}
+                onChange={(e) => setPickupAddress(e.target.value)}
                 placeholder="123 Main St, City, State"
                 required
                 className="flex-1 border-primary/20"
@@ -350,32 +434,66 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
                 type="button" 
                 variant="outline" 
                 size="icon" 
-                onClick={handleUpdateLocation} 
-                disabled={gettingLocation}
+                onClick={handleCapturePickupLocation} 
+                disabled={gettingPickupLocation}
                 className="border-primary/30 hover:bg-primary/10 hover:text-primary"
+                title="Capture pickup GPS coordinates"
               >
-                {gettingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+                {gettingPickupLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
               </Button>
             </div>
-            {currentLocation && (
+            {pickupCoordinates && (
               <p className="text-xs text-muted-foreground">
-                Current: Lat: {currentLocation.latitude.toFixed(6)}, Lng: {currentLocation.longitude.toFixed(6)}
+                Pickup: Lat: {pickupCoordinates.latitude.toFixed(6)}, Lng: {pickupCoordinates.longitude.toFixed(6)}
               </p>
             )}
           </div>
 
-          {/* End Location */}
+          {/* Dropoff Address */}
           <div className="space-y-2">
-            <Label htmlFor="end-location">End Location *</Label>
-            <Input 
-              id="end-location" 
-              value={endLocation} 
-              onChange={(e) => setEndLocation(e.target.value)} 
-              placeholder="456 Oak Ave, City, State" 
-              required 
-              className="border-primary/20 focus:ring-primary"
-            />
+            <Label htmlFor="dropoff-address">Dropoff Address *</Label>
+            <div className="flex gap-2">
+              <Input 
+                id="dropoff-address" 
+                value={dropoffAddress} 
+                onChange={(e) => setDropoffAddress(e.target.value)} 
+                placeholder="456 Oak Ave, City, State" 
+                required 
+                className="flex-1 border-primary/20 focus:ring-primary"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="icon" 
+                onClick={handleCaptureDropoffLocation} 
+                disabled={gettingDropoffLocation}
+                className="border-primary/30 hover:bg-primary/10 hover:text-primary"
+                title="Capture dropoff GPS coordinates"
+              >
+                {gettingDropoffLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+              </Button>
+            </div>
+            {dropoffCoordinates && (
+              <p className="text-xs text-muted-foreground">
+                Dropoff: Lat: {dropoffCoordinates.latitude.toFixed(6)}, Lng: {dropoffCoordinates.longitude.toFixed(6)}
+              </p>
+            )}
           </div>
+
+          {/* Distance Display */}
+          {isDistanceBasedService() && distanceMiles !== null && (
+            <Alert className={showDistanceWarning ? "border-destructive/50 bg-destructive/10" : "border-primary/30 bg-primary/5"}>
+              <MapPin className={`h-4 w-4 ${showDistanceWarning ? 'text-destructive' : 'text-primary'}`} />
+              <AlertDescription>
+                <strong>Calculated Distance:</strong> {formatDistance(distanceMiles)}
+                {showDistanceWarning && (
+                  <div className="mt-1 text-destructive font-medium">
+                    Distance exceeds {MAX_DISTANCE_MILES} miles. Bookings are limited to {MAX_DISTANCE_MILES} miles.
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Estimated Hours (only for hourly services) */}
           {selectedService.isHourly && (
@@ -443,7 +561,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             <h3 className="mb-3 font-semibold text-primary">Cost Breakdown</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Deposit (card required)</span>
+                <span className="text-muted-foreground">Deposit (non-refundable)</span>
                 <span className="font-medium">${estimate.deposit.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
@@ -461,10 +579,10 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
                 <span className="font-bold text-primary">${estimate.total.toFixed(2)}</span>
               </div>
             </div>
-            <Alert className="mt-3 border-primary/30 bg-background">
-              <Info className="h-4 w-4 text-primary" />
-              <AlertDescription className="text-xs">
-                Deposit must be paid by card. Service fee can be paid by {paymentMethod === 'cash' ? 'cash' : 'card'}.
+            <Alert className="mt-3 border-destructive/50 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-xs text-destructive">
+                <strong>Non-Refundable Deposit:</strong> The ${estimate.deposit.toFixed(2)} deposit is non-refundable even if you cancel the service.
               </AlertDescription>
             </Alert>
           </div>
@@ -488,7 +606,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
           </Button>
           <Button 
             type="submit" 
-            disabled={createDepositCheckout.isPending || createTrip.isPending || drivers.length === 0} 
+            disabled={!canSubmit || createDepositCheckout.isPending || createTrip.isPending || drivers.length === 0} 
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-gold"
           >
             {(createDepositCheckout.isPending || createTrip.isPending) ? (

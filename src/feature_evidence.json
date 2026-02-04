@@ -2,12 +2,12 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-implement-a-driver-facing-active-request-active-trip-workflow-in-the-driver-dashboard-that-lets-the-assigned-driver-move-a-trip-through-the-uber-like-lifecycle-pending-accepted-en-route-arrived-in-progress-completed-using-the-existing-backend-updatetripstatus-tripid-newstatus-statusupdate-api-and-existing-tripstatus-statusupdate-types",
-      "featureTitle": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+      "featureId": "feature-update-the-customer-booking-flow-ui-to-collect-both-pickup-and-dropoff-addresses-and-calculate-an-estimated-distance-miles-from-pickup-and-dropoff-coordinates-when-available-provide-a-clear-ui-action-to-capture-coordinates-for-both-pickup-and-dropoff-e-g-a-use-current-location-gps-button-for-each-address-and-show-the-calculated-miles-in-the-cost-breakdown",
+      "featureTitle": "Update the customer booking flow UI to collect both pickup and dropoff addresses and calculate an estimated distance (miles) from pickup and dropoff coordinates when available. Provide a clear UI action to capture coordinates for both pickup and dropoff (e.g., a “Use current location” / GPS button for each address), and show the calculated miles in the cost breakdown.",
       "files": [
-        "frontend/src/components/TripDetailsDialog.tsx",
-        "frontend/src/pages/DriverDashboard.tsx",
-        "frontend/src/utils/tripProgress.ts"
+        "frontend/src/components/BookingRequestForm.tsx",
+        "frontend/src/components/ServiceSelectionForm.tsx",
+        "frontend/src/utils/distance.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -27,12 +27,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-implement-a-client-facing-trip-progress-view-for-each-trip-in-client-dashboard-trip-cards-and-or-trip-details-dialog-that-displays-the-current-tripstatus-and-the-latest-statusupdate-message-summary-to-approximate-uber-like-check-ins-eta-messaging-without-gps-maps",
-      "featureTitle": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+      "featureId": "feature-implement-pricing-rules-for-distance-up-to-10-miles-charge-a-10-non-refundable-deposit-and-a-25-service-fee-total-35-for-eligible-bookings-and-apply-the-same-pricing-rule-to-the-shopping-booking-flow-shopping-services-if-the-calculated-distance-is-greater-than-10-miles-prevent-checkout-booking-submission-and-show-an-english-validation-message-stating-that-pricing-is-only-supported-up-to-10-miles-at-this-time",
+      "featureTitle": "Implement pricing rules for distance up to 10 miles: charge a $10 non-refundable deposit and a $25 service fee (total $35) for eligible bookings, and apply the same pricing rule to the Shopping booking flow (Shopping services). If the calculated distance is greater than 10 miles, prevent checkout/booking submission and show an English validation message stating that pricing is only supported up to 10 miles at this time.",
       "files": [
-        "frontend/src/components/TripDetailsDialog.tsx",
-        "frontend/src/pages/ClientDashboard.tsx",
-        "frontend/src/utils/tripProgress.ts"
+        "frontend/src/components/BookingRequestForm.tsx",
+        "frontend/src/components/ServiceSelectionForm.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -52,12 +51,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-extend-react-query-hooks-to-support-reading-and-updating-trip-workflow-state-using-existing-backend-methods-getclienttrips-getdrivertrips-updatetripstatus-and-any-currently-used-trip-queries-ensuring-ui-automatically-refreshes-after-status-changes",
-      "featureTitle": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+      "featureId": "feature-make-the-non-refundable-deposit-policy-explicit-in-the-booking-ui-add-english-user-facing-copy-in-the-booking-cost-breakdown-and-or-confirmation-area-stating-that-the-10-deposit-is-non-refundable-even-if-the-customer-cancels-the-service",
+      "featureTitle": "Make the non-refundable deposit policy explicit in the booking UI: add English user-facing copy in the booking cost breakdown and/or confirmation area stating that the $10 deposit is non-refundable even if the customer cancels the service.",
       "files": [
-        "frontend/src/components/TripDetailsDialog.tsx",
-        "frontend/src/pages/ClientDashboard.tsx",
-        "frontend/src/pages/DriverDashboard.tsx"
+        "frontend/src/components/BookingRequestForm.tsx",
+        "frontend/src/components/ServiceSelectionForm.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -73,6 +71,30 @@
       ],
       "testIds": [
         "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-persist-the-computed-distance-and-pickup-dropoff-address-details-on-the-trip-record-created-for-these-bookings-ensuring-backend-trip-distance-float-and-trip-locationdetails-pickupaddress-dropoffaddress-and-coordinates-when-available-are-populated-consistently-from-the-booking-flow",
+      "featureTitle": "Persist the computed distance and pickup/dropoff address details on the Trip record created for these bookings, ensuring backend Trip.distance (Float) and Trip.locationDetails (pickupAddress/dropoffAddress and coordinates when available) are populated consistently from the booking flow.",
+      "files": [
+        "frontend/src/components/BookingRequestForm.tsx",
+        "frontend/src/components/ServiceSelectionForm.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "stripe@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "http-outcalls@3.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
       ],
       "confidence": "high"
     }

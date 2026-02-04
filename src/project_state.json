@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 18,
-  "summary": "Project direction updated: Cityprop is a two-app platform (Customer app + Driver app) for companion/errand services with service-based pricing and deposits processed by card via Stripe, optional cash service-fee payments, role-separated dashboards with private wallets, multi-language UI (EN/ES/FR with optional auto-detect), and an Uber-like booking/status workflow constrained by no real-time GPS/maps (use status updates/check-ins instead). Branding includes full-color logo, black-and-gold theme, unified tagline styling, larger hero imagery, and in-app instructional videos for customers and drivers.",
+  "projectStateVersion": 22,
+  "summary": "Cityprop INC Multi-services is a full-stack Internet Computer (ICP) dApp for booking and providing “companion” and errands services. It includes Internet Identity authentication, role-based experiences (Customer/Driver/Admin), user/driver profile management with geolocation and photo uploads, an admin-managed driver approval workflow, trip tracking, and Stripe integration for deposits and card payments. The frontend is a React + Tailwind (black-and-gold theme) app using TanStack React Query for backend calls with periodic polling for near real-time trip/payment status and wallet/earnings views; the backend is a Motoko canister with access control, approval state, Stripe HTTP outcalls, and blob-storage gateway mixins.",
   "existing_features": [
     {
       "id": "IF-1",
@@ -181,26 +181,45 @@
       "version": 1
     },
     {
-      "id": "feature-implement-a-driver-facing-active-request-active-trip-workflow-in-the-driver-dashboard-that-lets-the-assigned-driver-move-a-trip-through-the-uber-like-lifecycle-pending-accepted-en-route-arrived-in-progress-completed-using-the-existing-backend-updatetripstatus-tripid-newstatus-statusupdate-api-and-existing-tripstatus-statusupdate-types",
-      "title": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+      "id": "IF-17",
+      "title": "Internationalization (i18n) framework",
+      "synonyms": [
+        "I18nProvider",
+        "translations"
+      ],
+      "description": "Frontend includes an i18n provider with translation dictionaries and hooks to render UI strings via localized keys, enabling future multi-language support.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-customer-booking-flow-ui-to-collect-both-pickup-and-dropoff-addresses-and-calculate-an-estimated-distance-miles-from-pickup-and-dropoff-coordinates-when-available-provide-a-clear-ui-action-to-capture-coordinates-for-both-pickup-and-dropoff-e-g-a-use-current-location-gps-button-for-each-address-and-show-the-calculated-miles-in-the-cost-breakdown",
+      "title": "Update the customer booking flow UI to collect both pickup and dropoff addresses and calculate an estimated distance (miles) from pickup and dropoff coordinates when available. Provide a clear UI action to capture coordinates for both pickup and dropoff (e.g., a “Use current location” / GPS button for each address), and show the calculated miles in the cost breakdown.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-implement-a-client-facing-trip-progress-view-for-each-trip-in-client-dashboard-trip-cards-and-or-trip-details-dialog-that-displays-the-current-tripstatus-and-the-latest-statusupdate-message-summary-to-approximate-uber-like-check-ins-eta-messaging-without-gps-maps",
-      "title": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+      "id": "feature-implement-pricing-rules-for-distance-up-to-10-miles-charge-a-10-non-refundable-deposit-and-a-25-service-fee-total-35-for-eligible-bookings-and-apply-the-same-pricing-rule-to-the-shopping-booking-flow-shopping-services-if-the-calculated-distance-is-greater-than-10-miles-prevent-checkout-booking-submission-and-show-an-english-validation-message-stating-that-pricing-is-only-supported-up-to-10-miles-at-this-time",
+      "title": "Implement pricing rules for distance up to 10 miles: charge a $10 non-refundable deposit and a $25 service fee (total $35) for eligible bookings, and apply the same pricing rule to the Shopping booking flow (Shopping services). If the calculated distance is greater than 10 miles, prevent checkout/booking submission and show an English validation message stating that pricing is only supported up to 10 miles at this time.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-add-extend-react-query-hooks-to-support-reading-and-updating-trip-workflow-state-using-existing-backend-methods-getclienttrips-getdrivertrips-updatetripstatus-and-any-currently-used-trip-queries-ensuring-ui-automatically-refreshes-after-status-changes",
-      "title": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+      "id": "feature-make-the-non-refundable-deposit-policy-explicit-in-the-booking-ui-add-english-user-facing-copy-in-the-booking-cost-breakdown-and-or-confirmation-area-stating-that-the-10-deposit-is-non-refundable-even-if-the-customer-cancels-the-service",
+      "title": "Make the non-refundable deposit policy explicit in the booking UI: add English user-facing copy in the booking cost breakdown and/or confirmation area stating that the $10 deposit is non-refundable even if the customer cancels the service.",
       "reqIds": [
         "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-persist-the-computed-distance-and-pickup-dropoff-address-details-on-the-trip-record-created-for-these-bookings-ensuring-backend-trip-distance-float-and-trip-locationdetails-pickupaddress-dropoffaddress-and-coordinates-when-available-are-populated-consistently-from-the-booking-flow",
+      "title": "Persist the computed distance and pickup/dropoff address details on the Trip record created for these bookings, ensuring backend Trip.distance (Float) and Trip.locationDetails (pickupAddress/dropoffAddress and coordinates when available) are populated consistently from the booking flow.",
+      "reqIds": [
+        "REQ-4"
       ],
       "version": 1
     }
@@ -208,67 +227,19 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Split into two separately branded apps: Cityprop (Customer) and Cityprop Drivers (Driver), with role selection on open and fully separate dashboards",
+      "summary": "Add pickup and drop-off address inputs for bookings and use them to calculate trip distance/mileage.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Service catalog flow: users choose a service, see service-specific pricing and required deposit, and place a booking",
+      "summary": "Implement pricing rule for trips up to 10 miles: $10 non-refundable deposit (kept even if canceled) + $25 service fee.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-3",
-      "summary": "Pricing rules update: remove mileage fee; set Companion services to $20 deposit + $30/hour; Shopping/Pickup services to $10 deposit + $25 flat fee",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Payments update: deposit must be paid by card; service fee can be cash; driver can choose payout preference (cash vs deposit to card)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-5",
-      "summary": "Company policy deductions: $7 deducted per service; define company/driver pay breakdown visibility and accounting",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-6",
-      "summary": "Privacy controls: customers must not see driver wallet balances or company deductions; driver wallet remains private in driver experience",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-7",
-      "summary": "Driver onboarding enhancements: require age 18+, clean background, valid active license; collect address/phone/license/car info; upload face + car photos; instruct email submission to cityprop01@gmail.com for approval",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Add instructional onboarding videos: customer video (how service works + paying drivers in cash) and driver video (how they get paid + how Cityprop gets paid + cash handling)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-9",
-      "summary": "Branding updates: rename to Cityprop; apply full-color logo across header/landing/splash/app icon; unify tagline color; adjust theme styling and enlarge main imagery",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-10",
-      "summary": "Internationalization: language selector (English/Spanish/French) and optional device-language auto-detection",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-11",
-      "summary": "Uber-like workflow without GPS: booking → accept → status updates/check-ins/ETA messaging to approximate location-based flow within platform limits",
+      "summary": "Apply the same up-to-10-miles pricing rule ($10 deposit + $25 service fee) to the Shopping service flow as well.",
       "reqIds": [],
       "status": "pending"
     }
@@ -283,7 +254,7 @@
     "Blob storage integration uses a gateway principal allowlist retrieved from a cashier canister; driver photos are stored as ExternalBlob references and rendered via getDirectURL() in the frontend.",
     "UI uses a shadcn-like component set with Tailwind, OKLCH CSS variables for theme tokens, and next-themes for light/dark/system toggling.",
     "Dashboards are role-based: landing page when unauthenticated; mandatory role selection and profile setup when authenticated without a profile; approval-pending screen when not approved; separate customer/driver/admin dashboards thereafter.",
-    "Repository now includes a full build-template React scaffold (Dockerfile, deploy scripts, ICP canister yamls, shadcn-style UI component library, eslint rules, and image resize/prune scripts) intended to standardize builds/deploys and component reuse across projects."
+    "Repository includes a standardized React build-template scaffold (Dockerfile, deploy scripts, canister yamls, eslint rules, shadcn-style UI library, image resize/prune scripts) and an app-level i18n provider with translation resources."
   ],
   "known_issues": [
     "Driver onboarding logic conflict: backend saveCallerUserProfile downgrades any non-approved #driver profile to #customer, but requestApproval requires isDriver(caller) (based on stored profile). This prevents new drivers from successfully requesting approval unless an admin intervenes.",
@@ -294,13 +265,12 @@
     "Company earnings calculations sum TripCostCalculation.deposit and companyCommission; comments in UI mention specific per-booking allocations (e.g., $5), but backend lacks explicit tracking of company share vs full deposit amount, risking mismatched reporting.",
     "Environment variable typo risk: blob storage cashier principal env var key is 'CAFFFEINE_STORAGE_CASHIER_PRINCIPAL' (triple 'F') in multiple places; if intended to be 'CAFFEINE...', deployment configuration may fail.",
     "Duplicate/conflicting CSS file content appears in provided listing (frontend/src/index.css and frontend/index.css). If both exist in repo, it may cause theme token conflicts depending on build tooling and imports.",
-    "AccessControl.getUserRole traps if a principal is not registered; anonymous actor calls can trigger traps if any query path inadvertently requires #user permissions before initialization.",
-    "Requested Uber-style GPS/maps/live tracking cannot be implemented on the current platform; features must be redesigned to avoid real-time geolocation dependencies."
+    "AccessControl.getUserRole traps if a principal is not registered; anonymous actor calls can trigger traps if any query path inadvertently requires #user permissions before initialization."
   ],
   "isFixRequest": false,
   "generatedImages": [],
   "gameProjectType": "none",
-  "projectName": "Cityprop",
+  "projectName": "Cityprop INC Multi-services",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

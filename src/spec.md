@@ -1,13 +1,16 @@
 # Specification
 
 ## Summary
-**Goal:** Add an Uber-like trip status workflow (accept → en route → arrived → in progress → completed) for drivers and a clear trip-progress view for clients, without GPS/maps.
+**Goal:** Add pickup/dropoff address capture with coordinate-based distance calculation, enforce a fixed $10 deposit + $25 fee for trips up to 10 miles (including Shopping), and persist trip location/distance details.
 
 **Planned changes:**
-- Update the Driver Dashboard trip UI to support an “Active Request / Active Trip” lifecycle: allow “Accept” on pending trips and then sequential status updates (En Route, Arrived, In Progress, Completed) using the existing `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing trip/status types.
-- Prevent invalid driver actions in the UI (e.g., no driver cancel controls; customer-only cancellation remains unchanged).
-- Add/extend client trip cards and/or trip details to display current trip step and the latest driver status update message/summary, including completed-trip summaries while omitting driver-only financial info.
-- Add/extend React Query hooks around existing trip queries and `updateTripStatus` so client/driver lists and detail views refresh automatically after status changes, with errors shown via existing toast/error patterns.
-- Wire any new user-facing text for these controls through the existing i18n system in English.
+- Update the booking UI to require Pickup address and Dropoff address inputs.
+- Add UI actions to capture/set pickup and dropoff coordinates from the browser (e.g., “Use current location” buttons for each address) and compute/display estimated miles when both coordinates exist.
+- Block booking/checkout when distance cannot be calculated (missing coordinates) and show a clear English message prompting the user to set coordinates.
+- Enforce pricing for distance <= 10 miles: $10 non-refundable deposit + $25 service fee (total $35), applying the same rule to Shopping bookings.
+- If calculated distance > 10 miles, block submission and show an English validation message that bookings are limited to 10 miles at this time.
+- Ensure Stripe checkout line items reflect the $10 deposit (in cents) and no additional mileage charges for the <= 10 mile case.
+- Add explicit English copy in the booking flow stating the $10 deposit is non-refundable even if the customer cancels (shown before redirecting to Stripe).
+- Persist pickup/dropoff addresses, coordinates (when available), and computed distance on the backend Trip record (Trip.distance and Trip.locationDetails).
 
-**User-visible outcome:** Drivers can move an assigned trip through a guided Uber-like status flow with optional messages, and clients can see the current trip step plus the most recent driver update/completion summary—without maps or live tracking.
+**User-visible outcome:** Customers can enter pickup and dropoff addresses, set coordinates via GPS for each, see the calculated miles and a $35 breakdown (with non-refundable deposit notice) for trips up to 10 miles, and are prevented from booking if distance can’t be calculated or exceeds 10 miles.

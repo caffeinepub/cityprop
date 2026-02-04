@@ -5,7 +5,7 @@ import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import UserApproval "user-approval/approval";
-
+import Migration "migration";
 
 import Map "mo:core/Map";
 import Array "mo:core/Array";
@@ -17,8 +17,7 @@ import Text "mo:core/Text";
 import Float "mo:core/Float";
 import Runtime "mo:core/Runtime";
 
-// Apply migration using the designated data migration function in migration.mo
-
+(with migration = Migration.run)
 actor {
   type Coordinates = {
     latitude : Float;
@@ -61,7 +60,7 @@ actor {
     startTime : Int;
     endTime : ?Int;
     tripStatus : TripStatus;
-    distance : ?Float;
+    distance : Float;
     duration : ?Float;
     totalCost : ?Float;
     depositPaid : Bool;
@@ -771,10 +770,7 @@ actor {
       }
     });
     for (trip in driverTrips.values()) {
-      switch (trip.distance) {
-        case (?distance) { total += distance };
-        case (null) {};
-      };
+      total += trip.distance;
     };
     total;
   };

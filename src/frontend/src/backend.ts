@@ -99,7 +99,7 @@ export interface Trip {
     specialRequests: string;
     tripId: bigint;
     totalCost?: number;
-    distance?: number;
+    distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
     helpLoadingItems?: boolean;
@@ -1293,7 +1293,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
     specialRequests: string;
     tripId: bigint;
     totalCost: [] | [number];
-    distance: [] | [number];
+    distance: number;
     translatorNeeded: boolean;
     endLocation: [] | [_Coordinates];
     helpLoadingItems: [] | [boolean];
@@ -1313,7 +1313,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
     specialRequests: string;
     tripId: bigint;
     totalCost?: number;
-    distance?: number;
+    distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
     helpLoadingItems?: boolean;
@@ -1334,7 +1334,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
         specialRequests: value.specialRequests,
         tripId: value.tripId,
         totalCost: record_opt_to_undefined(from_candid_opt_n45(_uploadFile, _downloadFile, value.totalCost)),
-        distance: record_opt_to_undefined(from_candid_opt_n45(_uploadFile, _downloadFile, value.distance)),
+        distance: value.distance,
         translatorNeeded: value.translatorNeeded,
         endLocation: record_opt_to_undefined(from_candid_opt_n49(_uploadFile, _downloadFile, value.endLocation)),
         helpLoadingItems: record_opt_to_undefined(from_candid_opt_n6(_uploadFile, _downloadFile, value.helpLoadingItems)),
@@ -1649,7 +1649,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     specialRequests: string;
     tripId: bigint;
     totalCost?: number;
-    distance?: number;
+    distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
     helpLoadingItems?: boolean;
@@ -1669,7 +1669,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     specialRequests: string;
     tripId: bigint;
     totalCost: [] | [number];
-    distance: [] | [number];
+    distance: number;
     translatorNeeded: boolean;
     endLocation: [] | [_Coordinates];
     helpLoadingItems: [] | [boolean];
@@ -1690,7 +1690,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         specialRequests: value.specialRequests,
         tripId: value.tripId,
         totalCost: value.totalCost ? candid_some(value.totalCost) : candid_none(),
-        distance: value.distance ? candid_some(value.distance) : candid_none(),
+        distance: value.distance,
         translatorNeeded: value.translatorNeeded,
         endLocation: value.endLocation ? candid_some(value.endLocation) : candid_none(),
         helpLoadingItems: value.helpLoadingItems ? candid_some(value.helpLoadingItems) : candid_none(),

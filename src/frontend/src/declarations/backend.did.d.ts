@@ -104,7 +104,7 @@ export interface Trip {
   'specialRequests' : string,
   'tripId' : bigint,
   'totalCost' : [] | [number],
-  'distance' : [] | [number],
+  'distance' : number,
   'translatorNeeded' : boolean,
   'endLocation' : [] | [Coordinates],
   'helpLoadingItems' : [] | [boolean],

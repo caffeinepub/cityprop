@@ -1,98 +1,95 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Uber-like trip workflow via status updates (no GPS/maps)",
+  "title": "Address-based distance capture and <=10 mile deposit/fee enforcement in booking flow",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add driver-facing Active Request/Active Trip controls in Driver Dashboard to move trips through the lifecycle using updateTripStatus + StatusUpdate.",
+      "summary": "Collect pickup/dropoff addresses and coordinates in the booking flow, compute miles from coordinates, and show miles in the cost breakdown with coordinate capture actions.",
       "acceptanceCriteria": [
-        "When a driver opens a trip that is `TripStatus.pending`, the UI shows an “Accept” action that updates the trip to `TripStatus.accepted` and sets `statusUpdate` to `#tripAccepted` with a driver-supplied message (optional).",
-        "After acceptance, the driver can post sequential status updates using the existing `StatusUpdate` variants: `#enRoute`, `#arrived`, `#inProgress`, and finally `#completed` (with a completion summary).",
-        "The UI prevents invalid actions (e.g., driver cannot cancel; customer-only cancellation remains unchanged per backend rules).",
-        "All new user-facing text added for these controls is in English and is wired through the existing i18n system (translations file)."
+        "Booking UI includes required inputs for Pickup address and Dropoff address.",
+        "Booking UI provides a way to capture/set pickup coordinates and dropoff coordinates from the browser (when permitted).",
+        "When both pickup and dropoff coordinates exist, the UI displays a calculated distance in miles and uses it as the trip’s estimated/recorded distance for pricing validation.",
+        "If coordinates are unavailable, the UI clearly indicates that distance cannot be calculated and blocks submission (or requires the user to set coordinates) for distance-based pricing."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/TripDetailsDialog.tsx",
-          "operation": "modify",
-          "description": "Extend the driver view to include an “Active Trip” workflow panel that (a) derives the current step from `trip.tripStatus` + `trip.statusUpdate`, (b) renders only the next valid action buttons (Accept → En Route → Arrived → In Progress → Completed), (c) collects optional driver message for `#tripAccepted/#enRoute/#arrived/#inProgress` and a completion summary for `#completed`, and (d) calls `useUpdateTripStatus()` with appropriate `newStatus` and `StatusUpdate` values while explicitly not offering any driver-side cancel action. Show mutation success/error using the app’s existing toast pattern (`sonner`)."
-        },
-        {
-          "path": "frontend/src/pages/DriverDashboard.tsx",
-          "operation": "modify",
-          "description": "Update trip selection/view wiring so the driver’s trip details dialog always shows the latest trip state after status updates (e.g., store selectedTripId and pass it to the dialog instead of a stale trip object). Keep the workflow accessible from the existing “View Details” action without adding new routes."
-        },
-        {
-          "path": "frontend/src/utils/tripProgress.ts",
+          "path": "frontend/src/utils/distance.ts",
           "operation": "create",
-          "description": "Add shared frontend helpers to map (`TripStatus`, latest `StatusUpdate`) to an Uber-like step label and to determine the next allowed driver action in-sequence, without introducing GPS/maps or realtime tracking. These helpers will be reused by both driver and client UIs."
+          "description": "Add a small utility for computing great-circle (Haversine) distance in miles between two coordinate pairs and formatting/display helpers for miles."
         },
         {
-          "path": "frontend/src/i18n/translations.ts",
+          "path": "frontend/src/components/ServiceSelectionForm.tsx",
           "operation": "modify",
-          "description": "Add new English i18n keys for the driver trip workflow UI (step labels, button labels, field labels, validation/errors, and completion summary prompts). Ensure any new user-facing strings added by this requirement are fetched via `t(...)` from this file."
+          "description": "Update the booking UI to explicitly collect Pickup and Dropoff addresses, add separate GPS actions to capture pickupCoordinates and dropoffCoordinates via browser geolocation, compute/display estimated miles when both coordinates are set, and block submission with a clear English message when coordinates are missing (since no geocoding is allowed)."
+        },
+        {
+          "path": "frontend/src/components/BookingRequestForm.tsx",
+          "operation": "modify",
+          "description": "Align the companion booking form UI with the pickup/dropoff address + coordinate capture model: add separate pickup/dropoff GPS capture actions, compute/display miles from coordinates in the cost breakdown, and prevent submission until both coordinate sets are present (no external geocoding)."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Add client-facing trip progress display showing current step and latest driver message/summary in client trip cards and trip details.",
+      "summary": "Enforce pricing for distance <= 10 miles ($10 deposit + $25 fee) including Shopping services, and block submissions when distance > 10 miles; ensure Stripe checkout uses the $10 deposit line item only for the <=10 mile case.",
       "acceptanceCriteria": [
-        "For any trip, the client can see a clear current step (Pending/Accepted/En Route/Arrived/In Progress/Completed/Cancelled) and the most recent driver message (if present).",
-        "If the driver posts a `#completed` update, the client sees the completion summary (total + details) in the trip details UI.",
-        "The client UI does not display any driver-only financial information (e.g., driver wallet balances, deductions), preserving privacy boundaries."
+        "For eligible bookings with distance <= 10 miles, the displayed deposit is $10 and the displayed service fee is $25, and the total shown is $35.",
+        "For Shopping services, the same distance <= 10 miles rule results in the same $10 deposit + $25 service fee pricing.",
+        "If calculated distance > 10 miles, the UI blocks submission and shows an English error message indicating bookings are limited to 10 miles.",
+        "The Stripe checkout line items reflect the $10 deposit (in cents) and do not include any additional mileage charges for the <=10 mile case."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/ClientDashboard.tsx",
+          "path": "frontend/src/components/ServiceSelectionForm.tsx",
           "operation": "modify",
-          "description": "Enhance trip cards to display a concise “Trip progress” line derived from `TripStatus` + latest `StatusUpdate` (e.g., Accepted vs En Route vs Arrived) and show the latest driver message when present. Ensure the display stays client-safe (no driver wallet/balance/deductions)."
+          "description": "Implement distance-based pricing validation: when calculated miles <= 10, override displayed pricing to a $10 non-refundable deposit + $25 service fee (total $35) for all eligible services including Shopping; when miles > 10, disable/guard submission and show an English validation message stating pricing is only supported up to 10 miles. Ensure the Stripe deposit checkout session is created with a single $10 deposit ShoppingItem (1000 cents) and does not include additional mileage/time charges for the <=10 mile case."
         },
         {
-          "path": "frontend/src/components/TripDetailsDialog.tsx",
+          "path": "frontend/src/components/BookingRequestForm.tsx",
           "operation": "modify",
-          "description": "Add a client-facing “Trip progress” section that shows (a) the current derived step and (b) the most recent driver update message, and when `StatusUpdate.__kind__ === 'completed'`, display the completion summary (total + details). Ensure the dialog does not introduce any driver-only financial details."
-        },
-        {
-          "path": "frontend/src/utils/tripProgress.ts",
-          "operation": "modify",
-          "description": "Reuse/extend the shared mapping so the client view can render consistent step labels and extract the latest driver-facing message/summary from `StatusUpdate` safely."
-        },
-        {
-          "path": "frontend/src/i18n/translations.ts",
-          "operation": "modify",
-          "description": "Add new English i18n keys for client trip progress UI (labels like “Trip progress”, step names, “Latest update”, “No message yet”, and completed summary labels). Ensure these strings are retrieved via the existing i18n system."
+          "description": "Apply the same <=10 mile enforcement to this booking flow if it remains reachable: show $10 deposit + $25 fee (total $35) when miles <= 10; block submission with an English message when miles > 10; ensure checkout items reflect a $10 deposit line item and do not add mileage/time charges for the <=10 mile case."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Extend/adjust React Query hooks + dialog wiring so trip status changes refresh driver and client lists/details automatically and errors surface via existing toasts.",
+      "summary": "Make the $10 non-refundable deposit policy explicit before redirecting users to Stripe checkout.",
       "acceptanceCriteria": [
-        "A successful driver status update causes trip lists and trip detail views (client and driver) to reflect the new status without requiring a full page refresh.",
-        "Errors returned by the backend (e.g., unauthorized status transition) are surfaced to the user via the app’s existing toast/error patterns."
+        "The booking UI clearly states in English that the deposit is non-refundable even if the service is canceled.",
+        "The copy is displayed before the user is redirected to Stripe checkout."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/components/ServiceSelectionForm.tsx",
           "operation": "modify",
-          "description": "Refine trip-related React Query cache behavior so `useUpdateTripStatus()` reliably refreshes both list queries and any trip detail query used by the Trip Details dialog (ensure invalidation covers the specific trip query key used by `useGetTrip`, as well as driver/client trip lists). Keep using existing backend methods only."
+          "description": "Add explicit English copy in the cost breakdown/confirmation area that the $10 deposit is non-refundable even if the customer cancels, and ensure it is visible before the Stripe redirect occurs."
         },
         {
-          "path": "frontend/src/components/TripDetailsDialog.tsx",
+          "path": "frontend/src/components/BookingRequestForm.tsx",
           "operation": "modify",
-          "description": "Switch the dialog to load and display the latest trip data via `useGetTrip(tripId)` when opened (instead of relying solely on an initially selected/stored trip object), ensuring it reflects status changes immediately after `useUpdateTripStatus()` success without a full page refresh. Surface backend errors from status updates using the existing `sonner` toast pattern."
+          "description": "Add explicit English non-refundable deposit copy near the cost breakdown and ensure it is visible prior to redirecting to Stripe checkout."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Ensure the booking flow sends pickup/dropoff address details, coordinates (when captured), and computed distance so Trip records are created with consistent locationDetails and distance values.",
+      "acceptanceCriteria": [
+        "When a booking is created, the Trip stored in the backend includes pickupAddress and dropoffAddress in locationDetails.",
+        "When coordinates are captured, pickupCoordinates and dropoffCoordinates are stored in locationDetails.",
+        "Trip.distance is set (non-null) for distance-based bookings created through the updated flow."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ServiceSelectionForm.tsx",
+          "operation": "modify",
+          "description": "When creating a Trip from the booking UI, populate Trip.locationDetails with pickupAddress/dropoffAddress and both coordinate sets when available, set Trip.distance to the computed miles value, and set Trip.startLocation/endLocation consistently from the captured pickup/dropoff coordinates (ensuring the Trip payload includes distance and location details)."
         },
         {
-          "path": "frontend/src/pages/DriverDashboard.tsx",
+          "path": "frontend/src/components/BookingRequestForm.tsx",
           "operation": "modify",
-          "description": "Align selected trip state with the dialog’s refreshed data flow (e.g., pass `tripId` and rely on dialog query) so driver updates immediately reflect in the open dialog and in the list via React Query invalidation."
-        },
-        {
-          "path": "frontend/src/pages/ClientDashboard.tsx",
-          "operation": "modify",
-          "description": "Ensure the client’s open trip details view updates automatically after a driver status change by relying on the same dialog query-based refresh mechanism and existing React Query invalidation."
+          "description": "If this flow creates Stripe sessions without creating trips, update it to carry/compute the same distance + pickup/dropoff details in UI state so the application can pass them into trip creation wherever that is performed in the client flow (ensuring distance and location details are available to be persisted)."
         }
       ]
     }

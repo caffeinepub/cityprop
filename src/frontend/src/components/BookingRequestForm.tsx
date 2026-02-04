@@ -9,10 +9,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Clock, DollarSign, Loader2, Navigation, User, Car, Info, CreditCard } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Loader2, Navigation, User, Car, Info, CreditCard, AlertTriangle } from 'lucide-react';
 import { UserProfile, ShoppingItem } from '../backend';
 import { useCreateCheckoutSession, useGetAllDrivers } from '../hooks/useQueries';
 import { toast } from 'sonner';
+import { calculateDistance, formatDistance } from '../utils/distance';
 
 interface BookingRequestFormProps {
   userProfile: UserProfile;
@@ -23,16 +24,21 @@ const DEPOSIT = 10;
 const COMPANY_ALLOCATION = 5;
 const HOURLY_RATE = 30;
 const MILEAGE_RATE = 1.5;
+const MAX_DISTANCE_MILES = 10;
+const DISTANCE_BASED_DEPOSIT = 10;
+const DISTANCE_BASED_SERVICE_FEE = 25;
 
 export default function BookingRequestForm({ userProfile, onCancel }: BookingRequestFormProps) {
   const [activityType, setActivityType] = useState('');
   const [estimatedHours, setEstimatedHours] = useState('2');
   const [estimatedMiles, setEstimatedMiles] = useState('10');
-  const [startLocation, setStartLocation] = useState('');
-  const [endLocation, setEndLocation] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [dropoffAddress, setDropoffAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [gettingLocation, setGettingLocation] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [gettingPickupLocation, setGettingPickupLocation] = useState(false);
+  const [gettingDropoffLocation, setGettingDropoffLocation] = useState(false);
+  const [pickupCoordinates, setPickupCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [dropoffCoordinates, setDropoffCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [driverPhotos, setDriverPhotos] = useState<Map<string, string>>(new Map());
 
@@ -40,7 +46,7 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
   const { data: drivers = [], isLoading: driversLoading } = useGetAllDrivers();
 
   useEffect(() => {
-    setCurrentLocation({
+    setPickupCoordinates({
       latitude: userProfile.userCoordinates.latitude,
       longitude: userProfile.userCoordinates.longitude,
     });
@@ -64,48 +70,108 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
     }
   }, [drivers]);
 
-  const handleUpdateLocation = () => {
+  const handleCapturePickupLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported');
       return;
     }
 
-    setGettingLocation(true);
+    setGettingPickupLocation(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCurrentLocation({
+        setPickupCoordinates({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
-        setGettingLocation(false);
-        toast.success('Location updated');
+        setGettingPickupLocation(false);
+        toast.success('Pickup location captured');
       },
       (error) => {
-        setGettingLocation(false);
-        toast.error('Failed to get location: ' + error.message);
+        setGettingPickupLocation(false);
+        toast.error('Failed to get pickup location: ' + error.message);
       }
     );
   };
 
+  const handleCaptureDropoffLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported');
+      return;
+    }
+
+    setGettingDropoffLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setDropoffCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setGettingDropoffLocation(false);
+        toast.success('Dropoff location captured');
+      },
+      (error) => {
+        setGettingDropoffLocation(false);
+        toast.error('Failed to get dropoff location: ' + error.message);
+      }
+    );
+  };
+
+  const calculateDistanceMiles = (): number | null => {
+    if (!pickupCoordinates || !dropoffCoordinates) return null;
+    return calculateDistance(
+      pickupCoordinates.latitude,
+      pickupCoordinates.longitude,
+      dropoffCoordinates.latitude,
+      dropoffCoordinates.longitude
+    );
+  };
+
   const calculateEstimate = () => {
+    const distanceMiles = calculateDistanceMiles();
+    
+    // Check if distance-based pricing applies (distance <= 10 miles)
+    if (distanceMiles !== null && distanceMiles <= MAX_DISTANCE_MILES) {
+      const deposit = DISTANCE_BASED_DEPOSIT;
+      const serviceFee = DISTANCE_BASED_SERVICE_FEE;
+      const total = deposit + serviceFee;
+      return { hourCost: 0, mileageCost: serviceFee, total, deposit, serviceFee };
+    }
+    
+    // Original pricing for > 10 miles (blocked) or no coordinates
     const hours = parseFloat(estimatedHours) || 0;
     const miles = parseFloat(estimatedMiles) || 0;
     const hourCost = hours * HOURLY_RATE;
     const mileageCost = miles * MILEAGE_RATE;
     const total = DEPOSIT + hourCost + mileageCost;
-    return { hourCost, mileageCost, total };
+    return { hourCost, mileageCost, total, deposit: DEPOSIT, serviceFee: hourCost + mileageCost };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!activityType || !startLocation.trim() || !endLocation.trim()) {
+    if (!activityType || !pickupAddress.trim() || !dropoffAddress.trim()) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     if (!selectedDriverId) {
       toast.error('Please select a driver');
+      return;
+    }
+
+    if (!pickupCoordinates || !dropoffCoordinates) {
+      toast.error('Please capture both pickup and dropoff coordinates for distance calculation');
+      return;
+    }
+
+    const distanceMiles = calculateDistanceMiles();
+    if (distanceMiles === null) {
+      toast.error('Unable to calculate distance. Please capture coordinates.');
+      return;
+    }
+
+    if (distanceMiles > MAX_DISTANCE_MILES) {
+      toast.error(`Distance exceeds ${MAX_DISTANCE_MILES} miles. Bookings are limited to ${MAX_DISTANCE_MILES} miles.`);
       return;
     }
 
@@ -116,15 +182,8 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
     const items: ShoppingItem[] = [
       {
         productName: 'Companion Service Deposit',
-        productDescription: `Non-refundable booking deposit ($${COMPANY_ALLOCATION} allocated to company)`,
-        priceInCents: BigInt(DEPOSIT * 100),
-        quantity: BigInt(1),
-        currency: 'usd',
-      },
-      {
-        productName: `Companion Service - ${activityType}`,
-        productDescription: `Estimated ${estimatedHours} hours and ${estimatedMiles} miles with ${selectedDriver?.name || 'driver'}`,
-        priceInCents: BigInt(Math.round((estimate.hourCost + estimate.mileageCost) * 100)),
+        productDescription: `Non-refundable booking deposit for up to ${MAX_DISTANCE_MILES} miles`,
+        priceInCents: BigInt(estimate.deposit * 100),
         quantity: BigInt(1),
         currency: 'usd',
       },
@@ -138,6 +197,10 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
         cancelUrl: `${baseUrl}/?payment=cancelled`,
       });
 
+      if (!session?.url) {
+        throw new Error('Stripe session missing url');
+      }
+
       // Redirect to Stripe checkout for automatic payment processing
       window.location.href = session.url;
     } catch (error: any) {
@@ -146,6 +209,9 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
   };
 
   const estimate = calculateEstimate();
+  const distanceMiles = calculateDistanceMiles();
+  const showDistanceWarning = distanceMiles !== null && distanceMiles > MAX_DISTANCE_MILES;
+  const canSubmit = !showDistanceWarning && pickupCoordinates && dropoffCoordinates;
 
   return (
     <Card className="mb-8 border-primary/20 shadow-gold-lg">
@@ -230,14 +296,14 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
             </Select>
           </div>
 
-          {/* Start Location */}
+          {/* Pickup Address */}
           <div className="space-y-2">
-            <Label htmlFor="start-location">Start Location *</Label>
+            <Label htmlFor="pickup-address">Pickup Address *</Label>
             <div className="flex gap-2">
               <Input
-                id="start-location"
-                value={startLocation}
-                onChange={(e) => setStartLocation(e.target.value)}
+                id="pickup-address"
+                value={pickupAddress}
+                onChange={(e) => setPickupAddress(e.target.value)}
                 placeholder="123 Main St, City, State"
                 required
                 className="flex-1 border-primary/20"
@@ -246,62 +312,66 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
                 type="button" 
                 variant="outline" 
                 size="icon" 
-                onClick={handleUpdateLocation} 
-                disabled={gettingLocation}
+                onClick={handleCapturePickupLocation} 
+                disabled={gettingPickupLocation}
                 className="border-primary/30 hover:bg-primary/10 hover:text-primary"
+                title="Capture pickup GPS coordinates"
               >
-                {gettingLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+                {gettingPickupLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
               </Button>
             </div>
-            {currentLocation && (
+            {pickupCoordinates && (
               <p className="text-xs text-muted-foreground">
-                Current: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                Pickup: {pickupCoordinates.latitude.toFixed(6)}, {pickupCoordinates.longitude.toFixed(6)}
               </p>
             )}
           </div>
 
-          {/* End Location */}
+          {/* Dropoff Address */}
           <div className="space-y-2">
-            <Label htmlFor="end-location">End Location *</Label>
-            <Input 
-              id="end-location" 
-              value={endLocation} 
-              onChange={(e) => setEndLocation(e.target.value)} 
-              placeholder="456 Oak Ave, City, State" 
-              required 
-              className="border-primary/20 focus:ring-primary"
-            />
+            <Label htmlFor="dropoff-address">Dropoff Address *</Label>
+            <div className="flex gap-2">
+              <Input 
+                id="dropoff-address" 
+                value={dropoffAddress} 
+                onChange={(e) => setDropoffAddress(e.target.value)} 
+                placeholder="456 Oak Ave, City, State" 
+                required 
+                className="flex-1 border-primary/20 focus:ring-primary"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="icon" 
+                onClick={handleCaptureDropoffLocation} 
+                disabled={gettingDropoffLocation}
+                className="border-primary/30 hover:bg-primary/10 hover:text-primary"
+                title="Capture dropoff GPS coordinates"
+              >
+                {gettingDropoffLocation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
+              </Button>
+            </div>
+            {dropoffCoordinates && (
+              <p className="text-xs text-muted-foreground">
+                Dropoff: {dropoffCoordinates.latitude.toFixed(6)}, {dropoffCoordinates.longitude.toFixed(6)}
+              </p>
+            )}
           </div>
 
-          {/* Estimates */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="hours">Estimated Hours *</Label>
-              <Input 
-                id="hours" 
-                type="number" 
-                step="0.5" 
-                min="0.5" 
-                value={estimatedHours} 
-                onChange={(e) => setEstimatedHours(e.target.value)} 
-                required 
-                className="border-primary/20 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="miles">Estimated Miles *</Label>
-              <Input 
-                id="miles" 
-                type="number" 
-                step="0.1" 
-                min="0" 
-                value={estimatedMiles} 
-                onChange={(e) => setEstimatedMiles(e.target.value)} 
-                required 
-                className="border-primary/20 focus:ring-primary"
-              />
-            </div>
-          </div>
+          {/* Distance Display */}
+          {distanceMiles !== null && (
+            <Alert className={showDistanceWarning ? "border-destructive/50 bg-destructive/10" : "border-primary/30 bg-primary/5"}>
+              <MapPin className={`h-4 w-4 ${showDistanceWarning ? 'text-destructive' : 'text-primary'}`} />
+              <AlertDescription>
+                <strong>Calculated Distance:</strong> {formatDistance(distanceMiles)}
+                {showDistanceWarning && (
+                  <div className="mt-1 text-destructive font-medium">
+                    Distance exceeds {MAX_DISTANCE_MILES} miles. Bookings are limited to {MAX_DISTANCE_MILES} miles.
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Notes */}
           <div className="space-y-2">
@@ -318,37 +388,27 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
 
           {/* Cost Breakdown */}
           <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
-            <h3 className="mb-3 font-semibold text-primary">Estimated Cost Breakdown</h3>
+            <h3 className="mb-3 font-semibold text-primary">Cost Breakdown</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Non-refundable Deposit</span>
-                <span className="font-medium">${DEPOSIT.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between pl-4 text-xs">
-                <span className="text-muted-foreground">• Company allocation</span>
-                <span className="font-medium">${COMPANY_ALLOCATION.toFixed(2)}</span>
+                <span className="font-medium">${estimate.deposit.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Time ({estimatedHours} hrs × ${HOURLY_RATE}/hr)
+                  Service Fee (up to {MAX_DISTANCE_MILES} miles)
                 </span>
-                <span className="font-medium">${estimate.hourCost.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Mileage ({estimatedMiles} mi × ${MILEAGE_RATE}/mi)
-                </span>
-                <span className="font-medium">${estimate.mileageCost.toFixed(2)}</span>
+                <span className="font-medium">${estimate.serviceFee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between border-t border-primary/30 pt-2 text-base">
-                <span className="font-semibold">Estimated Total</span>
+                <span className="font-semibold">Total</span>
                 <span className="font-bold text-primary">${estimate.total.toFixed(2)}</span>
               </div>
             </div>
-            <Alert className="mt-3 border-primary/30 bg-background">
-              <Info className="h-4 w-4 text-primary" />
-              <AlertDescription className="text-xs">
-                Final cost will be calculated based on actual time and distance traveled. The deposit is non-refundable, with ${COMPANY_ALLOCATION} automatically allocated to the company.
+            <Alert className="mt-3 border-destructive/50 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-xs text-destructive">
+                <strong>Non-Refundable Deposit:</strong> The ${estimate.deposit.toFixed(2)} deposit is non-refundable even if you cancel the service.
               </AlertDescription>
             </Alert>
           </div>
@@ -372,7 +432,7 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
           </Button>
           <Button 
             type="submit" 
-            disabled={createCheckout.isPending || drivers.length === 0} 
+            disabled={!canSubmit || createCheckout.isPending || drivers.length === 0} 
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-gold"
           >
             {createCheckout.isPending ? (

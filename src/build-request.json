@@ -1,73 +1,91 @@
 {
   "kind": "build_request",
-  "title": "Add Uber-like trip workflow (accept → en route → arrived → in progress → completed) without GPS/maps",
+  "title": "Add pickup/dropoff address-based distance calculation and enforce $10 deposit + $25 fee for trips up to 10 miles (including Shopping)",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+      "text": "Update the customer booking flow UI to collect both pickup and dropoff addresses and calculate an estimated distance (miles) from pickup and dropoff coordinates when available. Provide a clear UI action to capture coordinates for both pickup and dropoff (e.g., a “Use current location” / GPS button for each address), and show the calculated miles in the cost breakdown.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-1"
         ],
         "quotes": [
-          "Want me to adjust your app’s flow to be as close as possible to Uber without GPS?",
-          "Yes please"
+          "Add where they can add the address for pick up and drop off  to calculate the mileage"
         ]
       },
       "acceptanceCriteria": [
-        "When a driver opens a trip that is `TripStatus.pending`, the UI shows an “Accept” action that updates the trip to `TripStatus.accepted` and sets `statusUpdate` to `#tripAccepted` with a driver-supplied message (optional).",
-        "After acceptance, the driver can post sequential status updates using the existing `StatusUpdate` variants: `#enRoute`, `#arrived`, `#inProgress`, and finally `#completed` (with a completion summary).",
-        "The UI prevents invalid actions (e.g., driver cannot cancel; customer-only cancellation remains unchanged per backend rules).",
-        "All new user-facing text added for these controls is in English and is wired through the existing i18n system (translations file)."
+        "Booking UI includes required inputs for Pickup address and Dropoff address.",
+        "Booking UI provides a way to capture/set pickup coordinates and dropoff coordinates from the browser (when permitted).",
+        "When both pickup and dropoff coordinates exist, the UI displays a calculated distance in miles and uses it as the trip’s estimated/recorded distance for pricing validation.",
+        "If coordinates are unavailable, the UI clearly indicates that distance cannot be calculated and blocks submission (or requires the user to set coordinates) for distance-based pricing."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+      "text": "Implement pricing rules for distance up to 10 miles: charge a $10 non-refundable deposit and a $25 service fee (total $35) for eligible bookings, and apply the same pricing rule to the Shopping booking flow (Shopping services). If the calculated distance is greater than 10 miles, prevent checkout/booking submission and show an English validation message stating that pricing is only supported up to 10 miles at this time.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-1"
         ],
         "quotes": [
-          "You can still run an Uber‑style service flow using what the platform supports: booking, driver assignment, driver check‑ins, status updates, payments, and trip summaries."
+          "for distance up to 10 miles the fee is $10 deposit non refundable even if they cancel the service, and $25  for service fee. And it is same for the shopping ."
         ]
       },
       "acceptanceCriteria": [
-        "For any trip, the client can see a clear current step (Pending/Accepted/En Route/Arrived/In Progress/Completed/Cancelled) and the most recent driver message (if present).",
-        "If the driver posts a `#completed` update, the client sees the completion summary (total + details) in the trip details UI.",
-        "The client UI does not display any driver-only financial information (e.g., driver wallet balances, deductions), preserving privacy boundaries."
+        "For eligible bookings with distance <= 10 miles, the displayed deposit is $10 and the displayed service fee is $25, and the total shown is $35.",
+        "For Shopping services, the same distance <= 10 miles rule results in the same $10 deposit + $25 service fee pricing.",
+        "If calculated distance > 10 miles, the UI blocks submission and shows an English error message indicating bookings are limited to 10 miles.",
+        "The Stripe checkout line items reflect the $10 deposit (in cents) and do not include any additional mileage charges for the <=10 mile case."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+      "text": "Make the non-refundable deposit policy explicit in the booking UI: add English user-facing copy in the booking cost breakdown and/or confirmation area stating that the $10 deposit is non-refundable even if the customer cancels the service.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-1"
         ],
         "quotes": [
-          "Want me to adjust your app’s flow to be as close as possible to Uber without GPS?"
+          "$10 deposit non refundable even if they cancel the service"
         ]
       },
       "acceptanceCriteria": [
-        "A successful driver status update causes trip lists and trip detail views (client and driver) to reflect the new status without requiring a full page refresh.",
-        "Errors returned by the backend (e.g., unauthorized status transition) are surfaced to the user via the app’s existing toast/error patterns."
+        "The booking UI clearly states in English that the deposit is non-refundable even if the service is canceled.",
+        "The copy is displayed before the user is redirected to Stripe checkout."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Persist the computed distance and pickup/dropoff address details on the Trip record created for these bookings, ensuring backend Trip.distance (Float) and Trip.locationDetails (pickupAddress/dropoffAddress and coordinates when available) are populated consistently from the booking flow.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Add where they can add the address for pick up and drop off  to calculate the mileage"
+        ]
+      },
+      "acceptanceCriteria": [
+        "When a booking is created, the Trip stored in the backend includes pickupAddress and dropoffAddress in locationDetails.",
+        "When coordinates are captured, pickupCoordinates and dropoffCoordinates are stored in locationDetails.",
+        "Trip.distance is set (non-null) for distance-based bookings created through the updated flow."
       ]
     }
   ],
   "constraints": [
-    "Do not add GPS, maps, or real-time driver tracking features (not supported on this platform).",
-    "Backend must remain single-actor architecture with all Motoko logic in backend/main.mo (only add migration if a persistent state schema change is required).",
-    "Do not edit files under frontend/src/components/ui or any frontend immutable paths; compose existing UI components instead.",
-    "Use English for any user-facing text added/changed by this build request (and wire it through the existing i18n translation structure)."
+    "Backend must remain a single Motoko actor (all logic in backend/main.mo).",
+    "Do not edit files under frontend immutablePaths; compose existing UI components instead of modifying their sources.",
+    "Use English for all user-facing text introduced by this change."
   ],
   "nonGoals": [
-    "Implementing live location sharing, route rendering, or map-based ETA calculations.",
-    "Adding WebSockets or real-time chat between client and driver."
+    "Do not integrate external geocoding or mapping APIs (no Google Maps, Mapbox, etc.).",
+    "Do not implement pricing rules for distances greater than 10 miles (beyond blocking/validation messaging).",
+    "Do not add third-party real-time features (WebSockets, push notifications, etc.)."
   ],
   "imageRequirements": {
     "required": [],
