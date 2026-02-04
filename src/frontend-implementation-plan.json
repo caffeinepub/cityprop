@@ -1,0 +1,100 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Uber-like trip workflow via status updates (no GPS/maps)",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Add driver-facing Active Request/Active Trip controls in Driver Dashboard to move trips through the lifecycle using updateTripStatus + StatusUpdate.",
+      "acceptanceCriteria": [
+        "When a driver opens a trip that is `TripStatus.pending`, the UI shows an “Accept” action that updates the trip to `TripStatus.accepted` and sets `statusUpdate` to `#tripAccepted` with a driver-supplied message (optional).",
+        "After acceptance, the driver can post sequential status updates using the existing `StatusUpdate` variants: `#enRoute`, `#arrived`, `#inProgress`, and finally `#completed` (with a completion summary).",
+        "The UI prevents invalid actions (e.g., driver cannot cancel; customer-only cancellation remains unchanged per backend rules).",
+        "All new user-facing text added for these controls is in English and is wired through the existing i18n system (translations file)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/TripDetailsDialog.tsx",
+          "operation": "modify",
+          "description": "Extend the driver view to include an “Active Trip” workflow panel that (a) derives the current step from `trip.tripStatus` + `trip.statusUpdate`, (b) renders only the next valid action buttons (Accept → En Route → Arrived → In Progress → Completed), (c) collects optional driver message for `#tripAccepted/#enRoute/#arrived/#inProgress` and a completion summary for `#completed`, and (d) calls `useUpdateTripStatus()` with appropriate `newStatus` and `StatusUpdate` values while explicitly not offering any driver-side cancel action. Show mutation success/error using the app’s existing toast pattern (`sonner`)."
+        },
+        {
+          "path": "frontend/src/pages/DriverDashboard.tsx",
+          "operation": "modify",
+          "description": "Update trip selection/view wiring so the driver’s trip details dialog always shows the latest trip state after status updates (e.g., store selectedTripId and pass it to the dialog instead of a stale trip object). Keep the workflow accessible from the existing “View Details” action without adding new routes."
+        },
+        {
+          "path": "frontend/src/utils/tripProgress.ts",
+          "operation": "create",
+          "description": "Add shared frontend helpers to map (`TripStatus`, latest `StatusUpdate`) to an Uber-like step label and to determine the next allowed driver action in-sequence, without introducing GPS/maps or realtime tracking. These helpers will be reused by both driver and client UIs."
+        },
+        {
+          "path": "frontend/src/i18n/translations.ts",
+          "operation": "modify",
+          "description": "Add new English i18n keys for the driver trip workflow UI (step labels, button labels, field labels, validation/errors, and completion summary prompts). Ensure any new user-facing strings added by this requirement are fetched via `t(...)` from this file."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Add client-facing trip progress display showing current step and latest driver message/summary in client trip cards and trip details.",
+      "acceptanceCriteria": [
+        "For any trip, the client can see a clear current step (Pending/Accepted/En Route/Arrived/In Progress/Completed/Cancelled) and the most recent driver message (if present).",
+        "If the driver posts a `#completed` update, the client sees the completion summary (total + details) in the trip details UI.",
+        "The client UI does not display any driver-only financial information (e.g., driver wallet balances, deductions), preserving privacy boundaries."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/ClientDashboard.tsx",
+          "operation": "modify",
+          "description": "Enhance trip cards to display a concise “Trip progress” line derived from `TripStatus` + latest `StatusUpdate` (e.g., Accepted vs En Route vs Arrived) and show the latest driver message when present. Ensure the display stays client-safe (no driver wallet/balance/deductions)."
+        },
+        {
+          "path": "frontend/src/components/TripDetailsDialog.tsx",
+          "operation": "modify",
+          "description": "Add a client-facing “Trip progress” section that shows (a) the current derived step and (b) the most recent driver update message, and when `StatusUpdate.__kind__ === 'completed'`, display the completion summary (total + details). Ensure the dialog does not introduce any driver-only financial details."
+        },
+        {
+          "path": "frontend/src/utils/tripProgress.ts",
+          "operation": "modify",
+          "description": "Reuse/extend the shared mapping so the client view can render consistent step labels and extract the latest driver-facing message/summary from `StatusUpdate` safely."
+        },
+        {
+          "path": "frontend/src/i18n/translations.ts",
+          "operation": "modify",
+          "description": "Add new English i18n keys for client trip progress UI (labels like “Trip progress”, step names, “Latest update”, “No message yet”, and completed summary labels). Ensure these strings are retrieved via the existing i18n system."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Extend/adjust React Query hooks + dialog wiring so trip status changes refresh driver and client lists/details automatically and errors surface via existing toasts.",
+      "acceptanceCriteria": [
+        "A successful driver status update causes trip lists and trip detail views (client and driver) to reflect the new status without requiring a full page refresh.",
+        "Errors returned by the backend (e.g., unauthorized status transition) are surfaced to the user via the app’s existing toast/error patterns."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Refine trip-related React Query cache behavior so `useUpdateTripStatus()` reliably refreshes both list queries and any trip detail query used by the Trip Details dialog (ensure invalidation covers the specific trip query key used by `useGetTrip`, as well as driver/client trip lists). Keep using existing backend methods only."
+        },
+        {
+          "path": "frontend/src/components/TripDetailsDialog.tsx",
+          "operation": "modify",
+          "description": "Switch the dialog to load and display the latest trip data via `useGetTrip(tripId)` when opened (instead of relying solely on an initially selected/stored trip object), ensuring it reflects status changes immediately after `useUpdateTripStatus()` success without a full page refresh. Surface backend errors from status updates using the existing `sonner` toast pattern."
+        },
+        {
+          "path": "frontend/src/pages/DriverDashboard.tsx",
+          "operation": "modify",
+          "description": "Align selected trip state with the dialog’s refreshed data flow (e.g., pass `tripId` and rely on dialog query) so driver updates immediately reflect in the open dialog and in the list via React Query invalidation."
+        },
+        {
+          "path": "frontend/src/pages/ClientDashboard.tsx",
+          "operation": "modify",
+          "description": "Ensure the client’s open trip details view updates automatically after a driver status change by relying on the same dialog query-based refresh mechanism and existing React Query invalidation."
+        }
+      ]
+    }
+  ]
+}

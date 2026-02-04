@@ -1,0 +1,77 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-04T20:48:25.920Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 3,
+    "implemented": 3,
+    "items": [
+      {
+        "id": "REQ-1",
+        "summary": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/TripDetailsDialog.tsx",
+          "frontend/src/pages/DriverDashboard.tsx",
+          "frontend/src/utils/tripProgress.ts",
+          "frontend/src/i18n/translations.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/TripDetailsDialog.tsx",
+          "frontend/src/pages/DriverDashboard.tsx",
+          "frontend/src/utils/tripProgress.ts"
+        ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/ClientDashboard.tsx",
+          "frontend/src/components/TripDetailsDialog.tsx",
+          "frontend/src/utils/tripProgress.ts",
+          "frontend/src/i18n/translations.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/ClientDashboard.tsx",
+          "frontend/src/components/TripDetailsDialog.tsx",
+          "frontend/src/utils/tripProgress.ts"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/TripDetailsDialog.tsx",
+          "frontend/src/pages/DriverDashboard.tsx",
+          "frontend/src/pages/ClientDashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/TripDetailsDialog.tsx",
+          "frontend/src/pages/DriverDashboard.tsx",
+          "frontend/src/pages/ClientDashboard.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/components/TripDetailsDialog.tsx",
+    "frontend/src/pages/ClientDashboard.tsx",
+    "frontend/src/pages/DriverDashboard.tsx",
+    "frontend/src/utils/tripProgress.ts",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

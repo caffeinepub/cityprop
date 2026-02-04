@@ -1,0 +1,80 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-implement-a-driver-facing-active-request-active-trip-workflow-in-the-driver-dashboard-that-lets-the-assigned-driver-move-a-trip-through-the-uber-like-lifecycle-pending-accepted-en-route-arrived-in-progress-completed-using-the-existing-backend-updatetripstatus-tripid-newstatus-statusupdate-api-and-existing-tripstatus-statusupdate-types",
+      "featureTitle": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+      "files": [
+        "frontend/src/components/TripDetailsDialog.tsx",
+        "frontend/src/pages/DriverDashboard.tsx",
+        "frontend/src/utils/tripProgress.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "stripe@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "http-outcalls@3.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-a-client-facing-trip-progress-view-for-each-trip-in-client-dashboard-trip-cards-and-or-trip-details-dialog-that-displays-the-current-tripstatus-and-the-latest-statusupdate-message-summary-to-approximate-uber-like-check-ins-eta-messaging-without-gps-maps",
+      "featureTitle": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+      "files": [
+        "frontend/src/components/TripDetailsDialog.tsx",
+        "frontend/src/pages/ClientDashboard.tsx",
+        "frontend/src/utils/tripProgress.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "stripe@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "http-outcalls@3.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-extend-react-query-hooks-to-support-reading-and-updating-trip-workflow-state-using-existing-backend-methods-getclienttrips-getdrivertrips-updatetripstatus-and-any-currently-used-trip-queries-ensuring-ui-automatically-refreshes-after-status-changes",
+      "featureTitle": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+      "files": [
+        "frontend/src/components/TripDetailsDialog.tsx",
+        "frontend/src/pages/ClientDashboard.tsx",
+        "frontend/src/pages/DriverDashboard.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "stripe@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "http-outcalls@3.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "kind": "build_request",
+  "title": "Add Uber-like trip workflow (accept → en route → arrived → in progress → completed) without GPS/maps",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-8"
+        ],
+        "quotes": [
+          "Want me to adjust your app’s flow to be as close as possible to Uber without GPS?",
+          "Yes please"
+        ]
+      },
+      "acceptanceCriteria": [
+        "When a driver opens a trip that is `TripStatus.pending`, the UI shows an “Accept” action that updates the trip to `TripStatus.accepted` and sets `statusUpdate` to `#tripAccepted` with a driver-supplied message (optional).",
+        "After acceptance, the driver can post sequential status updates using the existing `StatusUpdate` variants: `#enRoute`, `#arrived`, `#inProgress`, and finally `#completed` (with a completion summary).",
+        "The UI prevents invalid actions (e.g., driver cannot cancel; customer-only cancellation remains unchanged per backend rules).",
+        "All new user-facing text added for these controls is in English and is wired through the existing i18n system (translations file)."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-8"
+        ],
+        "quotes": [
+          "You can still run an Uber‑style service flow using what the platform supports: booking, driver assignment, driver check‑ins, status updates, payments, and trip summaries."
+        ]
+      },
+      "acceptanceCriteria": [
+        "For any trip, the client can see a clear current step (Pending/Accepted/En Route/Arrived/In Progress/Completed/Cancelled) and the most recent driver message (if present).",
+        "If the driver posts a `#completed` update, the client sees the completion summary (total + details) in the trip details UI.",
+        "The client UI does not display any driver-only financial information (e.g., driver wallet balances, deductions), preserving privacy boundaries."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-8"
+        ],
+        "quotes": [
+          "Want me to adjust your app’s flow to be as close as possible to Uber without GPS?"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A successful driver status update causes trip lists and trip detail views (client and driver) to reflect the new status without requiring a full page refresh.",
+        "Errors returned by the backend (e.g., unauthorized status transition) are surfaced to the user via the app’s existing toast/error patterns."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not add GPS, maps, or real-time driver tracking features (not supported on this platform).",
+    "Backend must remain single-actor architecture with all Motoko logic in backend/main.mo (only add migration if a persistent state schema change is required).",
+    "Do not edit files under frontend/src/components/ui or any frontend immutable paths; compose existing UI components instead.",
+    "Use English for any user-facing text added/changed by this build request (and wire it through the existing i18n translation structure)."
+  ],
+  "nonGoals": [
+    "Implementing live location sharing, route rendering, or map-based ETA calculations.",
+    "Adding WebSockets or real-time chat between client and driver."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

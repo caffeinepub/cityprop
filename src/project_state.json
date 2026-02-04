@@ -1,0 +1,306 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 18,
+  "summary": "Project direction updated: Cityprop is a two-app platform (Customer app + Driver app) for companion/errand services with service-based pricing and deposits processed by card via Stripe, optional cash service-fee payments, role-separated dashboards with private wallets, multi-language UI (EN/ES/FR with optional auto-detect), and an Uber-like booking/status workflow constrained by no real-time GPS/maps (use status updates/check-ins instead). Branding includes full-color logo, black-and-gold theme, unified tagline styling, larger hero imagery, and in-app instructional videos for customers and drivers.",
+  "existing_features": [
+    {
+      "id": "IF-1",
+      "title": "Internet Identity authentication provider",
+      "synonyms": [
+        "II login",
+        "AuthClient integration"
+      ],
+      "description": "Provides login/logout via DFINITY Internet Identity using AuthClient, loads persisted delegations on app start, tracks login status flags, and exposes identity to the app via a React context provider.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-2",
+      "title": "Backend actor creation and access-control initialization",
+      "synonyms": [
+        "useActor",
+        "admin secret bootstrap"
+      ],
+      "description": "Creates an authenticated or anonymous backend actor depending on identity. On actor creation, calls _initializeAccessControlWithSecret using a secret token pulled from URL hash/session (caffeineAdminToken) to bootstrap the first admin. React Query invalidation/refetch occurs when identity changes.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-3",
+      "title": "Role selection and role-based routing",
+      "synonyms": [
+        "AppRole flow",
+        "Customer/Driver selection"
+      ],
+      "description": "For authenticated users without a profile, forces a modal role selection (customer or driver) and then runs profile setup. Once a profile exists, routes to the appropriate dashboard (Client/Driver/Admin) and blocks access when not approved.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-4",
+      "title": "User profile management (create/read/update)",
+      "synonyms": [
+        "saveCallerUserProfile",
+        "getCallerUserProfile"
+      ],
+      "description": "Stores and retrieves user profiles containing name, phone, coordinates, and explicit AppRole. Frontend profile setup captures geolocation and required fields and saves via backend APIs.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-5",
+      "title": "Driver profile management and photo upload",
+      "synonyms": [
+        "driver registration",
+        "driver listing"
+      ],
+      "description": "Supports creating/saving driver profiles with car info, coordinates, optional Stripe account id, and photo blob. Drivers can upload a photo (ExternalBlob) and customers can view approved drivers via getAllDrivers; frontend renders photos via blob direct URLs.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-6",
+      "title": "Driver approval workflow (request, review, pending screen)",
+      "synonyms": [
+        "KYC/verification",
+        "admin approvals"
+      ],
+      "description": "Implements a user approval state machine (pending/approved/rejected). Drivers can request approval, admins can list and set approvals, and non-approved users are shown an approval pending screen with instructions (email cityprop01@gmail.com).",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-7",
+      "title": "Admin dashboard for approvals and earnings",
+      "synonyms": [
+        "AdminDashboard",
+        "approvals management"
+      ],
+      "description": "Admin UI to review pending approvals and approve/reject users, plus a company earnings summary and navigation to the full Company Wallet view. Includes Stripe configuration gating via StripeSetupCheck.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-8",
+      "title": "Stripe configuration management (admin-only)",
+      "synonyms": [
+        "StripeSetupCheck",
+        "setStripeConfiguration"
+      ],
+      "description": "Admin can configure Stripe secret key and allowed countries in-canister. Frontend detects configuration status and shows a setup modal when missing.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-9",
+      "title": "Stripe checkout session creation (deposit/final/general)",
+      "synonyms": [
+        "createCheckoutSession",
+        "Stripe payments"
+      ],
+      "description": "Backend can create Stripe Checkout Sessions via HTTPS outcalls; frontend provides hooks to create sessions for general purchases, deposits, and final payments, parsing the returned JSON into {id,url} and redirecting users to Stripe checkout.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-10",
+      "title": "Stripe session status lookup",
+      "synonyms": [
+        "getStripeSessionStatus"
+      ],
+      "description": "Backend exposes getStripeSessionStatus to query Stripe for a session and extract client_reference_id (user principal) for correlation.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-11",
+      "title": "Trip management and listing",
+      "synonyms": [
+        "createTrip",
+        "getClientTrips",
+        "getDriverTrips"
+      ],
+      "description": "Backend defines Trip/TripStatus models and supports creating trips (customer-only), reading a trip with access checks, and listing trips for clients and drivers with admin override.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-12",
+      "title": "Trip payment status tracking and updates",
+      "synonyms": [
+        "PaymentStatus",
+        "updateTripPaymentStatus"
+      ],
+      "description": "Trips include a PaymentStatus enum (pending/paid/transferred). Authorized parties (client/driver/admin) can update a trip’s payment status; frontend invalidates trip and earnings queries after updates.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-13",
+      "title": "Wallet and earnings dashboards with polling",
+      "synonyms": [
+        "DriverWallet",
+        "CompanyWallet",
+        "earnings polling"
+      ],
+      "description": "Driver wallet UI computes earnings from completed trips and groups by payment status; company wallet shows commission/deposit totals from backend. Queries for trips/earnings/company earnings poll every 10 seconds for near real-time updates and display syncing indicators.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-14",
+      "title": "Instructional video UX and backend video metadata",
+      "synonyms": [
+        "VideoPlayer",
+        "How it works videos"
+      ],
+      "description": "Reusable VideoPlayer supports autoplay-muted previews, play/pause, mute, fullscreen, and custom controls. Landing and Driver dashboards embed instructional videos. Backend supports admin upload and role-restricted retrieval of video metadata by type.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-15",
+      "title": "Responsive UI shell with theming and branding",
+      "synonyms": [
+        "Header/Footer",
+        "Tailwind theme"
+      ],
+      "description": "App shell includes branded header with role badges, theme toggle (light/dark/system), login/logout controls, and footer. Tailwind configuration provides gold palette and shadows; CSS variables use OKLCH tokens for consistent black-and-gold styling.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-16",
+      "title": "Secure URL secret parameter utilities",
+      "synonyms": [
+        "admin token via hash",
+        "urlParams helpers"
+      ],
+      "description": "Utilities extract secret parameters from URL hash (not sent to servers), persist them in sessionStorage, and clear them from the URL to reduce leakage risk; used for caffeineAdminToken handling.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-driver-facing-active-request-active-trip-workflow-in-the-driver-dashboard-that-lets-the-assigned-driver-move-a-trip-through-the-uber-like-lifecycle-pending-accepted-en-route-arrived-in-progress-completed-using-the-existing-backend-updatetripstatus-tripid-newstatus-statusupdate-api-and-existing-tripstatus-statusupdate-types",
+      "title": "Implement a driver-facing “Active Request / Active Trip” workflow in the Driver Dashboard that lets the assigned driver move a trip through the Uber-like lifecycle (Pending → Accepted → En Route → Arrived → In Progress → Completed) using the existing backend `updateTripStatus(tripId, newStatus, statusUpdate)` API and existing `TripStatus` + `StatusUpdate` types.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-client-facing-trip-progress-view-for-each-trip-in-client-dashboard-trip-cards-and-or-trip-details-dialog-that-displays-the-current-tripstatus-and-the-latest-statusupdate-message-summary-to-approximate-uber-like-check-ins-eta-messaging-without-gps-maps",
+      "title": "Implement a client-facing “Trip progress” view for each trip (in Client Dashboard trip cards and/or Trip Details dialog) that displays the current `TripStatus` and the latest `statusUpdate` message/summary to approximate Uber-like check-ins/ETA messaging without GPS/maps.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-extend-react-query-hooks-to-support-reading-and-updating-trip-workflow-state-using-existing-backend-methods-getclienttrips-getdrivertrips-updatetripstatus-and-any-currently-used-trip-queries-ensuring-ui-automatically-refreshes-after-status-changes",
+      "title": "Add/extend React Query hooks to support reading and updating trip workflow state using existing backend methods (`getClientTrips`, `getDriverTrips`, `updateTripStatus`, and any currently used trip queries), ensuring UI automatically refreshes after status changes.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Split into two separately branded apps: Cityprop (Customer) and Cityprop Drivers (Driver), with role selection on open and fully separate dashboards",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Service catalog flow: users choose a service, see service-specific pricing and required deposit, and place a booking",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Pricing rules update: remove mileage fee; set Companion services to $20 deposit + $30/hour; Shopping/Pickup services to $10 deposit + $25 flat fee",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Payments update: deposit must be paid by card; service fee can be cash; driver can choose payout preference (cash vs deposit to card)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Company policy deductions: $7 deducted per service; define company/driver pay breakdown visibility and accounting",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Privacy controls: customers must not see driver wallet balances or company deductions; driver wallet remains private in driver experience",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Driver onboarding enhancements: require age 18+, clean background, valid active license; collect address/phone/license/car info; upload face + car photos; instruct email submission to cityprop01@gmail.com for approval",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Add instructional onboarding videos: customer video (how service works + paying drivers in cash) and driver video (how they get paid + how Cityprop gets paid + cash handling)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Branding updates: rename to Cityprop; apply full-color logo across header/landing/splash/app icon; unify tagline color; adjust theme styling and enlarge main imagery",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Internationalization: language selector (English/Spanish/French) and optional device-language auto-detection",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Uber-like workflow without GPS: booking → accept → status updates/check-ins/ETA messaging to approximate location-based flow within platform limits",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "architectural_notes": [
+    "Frontend uses React + TanStack React Query; backend interactions are wrapped in custom hooks (useQueries.ts) with cache invalidation and polling (10s) for near real-time updates.",
+    "Authentication is via DFINITY Internet Identity (AuthClient) with long-lived delegations (30 days). Identity changes recreate the backend actor and force refetch/invalidation of dependent queries.",
+    "Backend is a Motoko actor organized with mixins (authorization, blob storage) and a migration hook (with migration = Migration.run).",
+    "Authorization is split into a simple role system (#admin/#user/#guest) plus an application role enum (#customer/#driver). Admin bootstrap is controlled by a shared secret compared against an environment variable (CAFFEINE_ADMIN_TOKEN).",
+    "Driver onboarding includes a separate approval subsystem (user-approval/approval.mo) that gates driver features and driver listing.",
+    "Stripe integration is implemented via ICP HTTPS outcalls (ic:aaaaa-aa http_request) with a transform function that strips response headers; backend stores Stripe configuration in-canister and exposes “is configured” and “create checkout session” APIs.",
+    "Blob storage integration uses a gateway principal allowlist retrieved from a cashier canister; driver photos are stored as ExternalBlob references and rendered via getDirectURL() in the frontend.",
+    "UI uses a shadcn-like component set with Tailwind, OKLCH CSS variables for theme tokens, and next-themes for light/dark/system toggling.",
+    "Dashboards are role-based: landing page when unauthenticated; mandatory role selection and profile setup when authenticated without a profile; approval-pending screen when not approved; separate customer/driver/admin dashboards thereafter.",
+    "Repository now includes a full build-template React scaffold (Dockerfile, deploy scripts, ICP canister yamls, shadcn-style UI component library, eslint rules, and image resize/prune scripts) intended to standardize builds/deploys and component reuse across projects."
+  ],
+  "known_issues": [
+    "Driver onboarding logic conflict: backend saveCallerUserProfile downgrades any non-approved #driver profile to #customer, but requestApproval requires isDriver(caller) (based on stored profile). This prevents new drivers from successfully requesting approval unless an admin intervenes.",
+    "Service booking flows in the UI (ServiceSelectionForm/BookingRequestForm) create Stripe checkout sessions and redirect, but do not create or persist a Trip in the backend (no createTrip call wired in these components), so trips/earnings may remain empty.",
+    "Stripe checkout body builder bug: allowedCountries are appended as shipping_address_collection[allowed_countries][0] for every country (index never increments), likely resulting in only one country being recognized by Stripe.",
+    "Stripe urlEncode implementation is incomplete (only replaces space, &, =); other reserved characters are not encoded, potentially breaking requests for some inputs/URLs.",
+    "DriverEarnings update logic appears incomplete: updateDriverEarnings sets totals (jobs/hours/mileage/earnings) to 0 and replaces paymentBreakdown with a single entry, suggesting a stub rather than an aggregation.",
+    "Company earnings calculations sum TripCostCalculation.deposit and companyCommission; comments in UI mention specific per-booking allocations (e.g., $5), but backend lacks explicit tracking of company share vs full deposit amount, risking mismatched reporting.",
+    "Environment variable typo risk: blob storage cashier principal env var key is 'CAFFFEINE_STORAGE_CASHIER_PRINCIPAL' (triple 'F') in multiple places; if intended to be 'CAFFEINE...', deployment configuration may fail.",
+    "Duplicate/conflicting CSS file content appears in provided listing (frontend/src/index.css and frontend/index.css). If both exist in repo, it may cause theme token conflicts depending on build tooling and imports.",
+    "AccessControl.getUserRole traps if a principal is not registered; anonymous actor calls can trigger traps if any query path inadvertently requires #user permissions before initialization.",
+    "Requested Uber-style GPS/maps/live tracking cannot be implemented on the current platform; features must be redesigned to avoid real-time geolocation dependencies."
+  ],
+  "isFixRequest": false,
+  "generatedImages": [],
+  "gameProjectType": "none",
+  "projectName": "Cityprop",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}
