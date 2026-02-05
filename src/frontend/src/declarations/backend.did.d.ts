@@ -96,6 +96,7 @@ export interface TransformationOutput {
 }
 export interface Trip {
   'startTime' : bigint,
+  'miles' : [] | [number],
   'driverId' : [] | [Principal],
   'duration' : [] | [number],
   'clientId' : Principal,
@@ -247,6 +248,7 @@ export interface _SERVICE {
     [Principal, PaymentBreakdown],
     undefined
   >,
+  'updateTripMiles' : ActorMethod<[bigint, number], undefined>,
   'updateTripPaymentStatus' : ActorMethod<[bigint, PaymentStatus], undefined>,
   'updateTripStatus' : ActorMethod<
     [bigint, TripStatus, [] | [StatusUpdate]],

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 22,
-  "summary": "Cityprop INC Multi-services is a full-stack Internet Computer (ICP) dApp for booking and providing “companion” and errands services. It includes Internet Identity authentication, role-based experiences (Customer/Driver/Admin), user/driver profile management with geolocation and photo uploads, an admin-managed driver approval workflow, trip tracking, and Stripe integration for deposits and card payments. The frontend is a React + Tailwind (black-and-gold theme) app using TanStack React Query for backend calls with periodic polling for near real-time trip/payment status and wallet/earnings views; the backend is a Motoko canister with access control, approval state, Stripe HTTP outcalls, and blob-storage gateway mixins.",
+  "projectStateVersion": 30,
+  "summary": "Cityprop is an ICP full-stack dApp evolving toward an Uber-like multi-service marketplace with separate Customer and Driver experiences (role chosen at launch) and strict privacy separation (customers cannot see driver/company wallet details). It supports Internet Identity auth, profiles, driver onboarding/approval (18+, clean background, valid license; applicants email details to cityprop01@gmail.com), driver photo + car info uploads for customer selection, service selection with service-based pricing and deposits (card-required deposits; optional cash for service fee), Stripe-based card processing for deposits, and dashboards for bookings and wallets/earnings. The product also adds multilingual UI (English/Spanish/French with language selector and device-language default), branding/logo/theme controls, and onboarding videos for both customers and drivers. Because GPS/maps aren’t available, location features are address-entry and manual mileage input with rule-based fee calculation (e.g., up to 10 miles: $10 non-refundable deposit + $25 service fee).",
   "existing_features": [
     {
       "id": "IF-1",
@@ -192,34 +192,10 @@
       "version": 1
     },
     {
-      "id": "feature-update-the-customer-booking-flow-ui-to-collect-both-pickup-and-dropoff-addresses-and-calculate-an-estimated-distance-miles-from-pickup-and-dropoff-coordinates-when-available-provide-a-clear-ui-action-to-capture-coordinates-for-both-pickup-and-dropoff-e-g-a-use-current-location-gps-button-for-each-address-and-show-the-calculated-miles-in-the-cost-breakdown",
-      "title": "Update the customer booking flow UI to collect both pickup and dropoff addresses and calculate an estimated distance (miles) from pickup and dropoff coordinates when available. Provide a clear UI action to capture coordinates for both pickup and dropoff (e.g., a “Use current location” / GPS button for each address), and show the calculated miles in the cost breakdown.",
+      "id": "feature-publish-the-currently-deployed-draft-version-29-to-the-production-environment-making-it-the-active-version-served-to-end-users",
+      "title": "Publish the currently deployed Draft Version 29 to the production environment, making it the active version served to end users.",
       "reqIds": [
         "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-implement-pricing-rules-for-distance-up-to-10-miles-charge-a-10-non-refundable-deposit-and-a-25-service-fee-total-35-for-eligible-bookings-and-apply-the-same-pricing-rule-to-the-shopping-booking-flow-shopping-services-if-the-calculated-distance-is-greater-than-10-miles-prevent-checkout-booking-submission-and-show-an-english-validation-message-stating-that-pricing-is-only-supported-up-to-10-miles-at-this-time",
-      "title": "Implement pricing rules for distance up to 10 miles: charge a $10 non-refundable deposit and a $25 service fee (total $35) for eligible bookings, and apply the same pricing rule to the Shopping booking flow (Shopping services). If the calculated distance is greater than 10 miles, prevent checkout/booking submission and show an English validation message stating that pricing is only supported up to 10 miles at this time.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-make-the-non-refundable-deposit-policy-explicit-in-the-booking-ui-add-english-user-facing-copy-in-the-booking-cost-breakdown-and-or-confirmation-area-stating-that-the-10-deposit-is-non-refundable-even-if-the-customer-cancels-the-service",
-      "title": "Make the non-refundable deposit policy explicit in the booking UI: add English user-facing copy in the booking cost breakdown and/or confirmation area stating that the $10 deposit is non-refundable even if the customer cancels the service.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-persist-the-computed-distance-and-pickup-dropoff-address-details-on-the-trip-record-created-for-these-bookings-ensuring-backend-trip-distance-float-and-trip-locationdetails-pickupaddress-dropoffaddress-and-coordinates-when-available-are-populated-consistently-from-the-booking-flow",
-      "title": "Persist the computed distance and pickup/dropoff address details on the Trip record created for these bookings, ensuring backend Trip.distance (Float) and Trip.locationDetails (pickupAddress/dropoffAddress and coordinates when available) are populated consistently from the booking flow.",
-      "reqIds": [
-        "REQ-4"
       ],
       "version": 1
     }
@@ -227,19 +203,43 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Add pickup and drop-off address inputs for bookings and use them to calculate trip distance/mileage.",
+      "summary": "Split UX into distinct Customer vs Driver paths selected on app launch, with separate dashboards and no cross-visibility of wallet/financial details.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Implement pricing rule for trips up to 10 miles: $10 non-refundable deposit (kept even if canceled) + $25 service fee.",
+      "summary": "Service catalog flow: customer chooses a service (e.g., companion party/hospital/meeting/shopping, shopping-for-them, pickup item) and sees service-specific pricing and required deposit at selection time; support cash vs card rules (deposit by card, service fee optionally cash).",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-3",
-      "summary": "Apply the same up-to-10-miles pricing rule ($10 deposit + $25 service fee) to the Shopping service flow as well.",
+      "summary": "Driver onboarding requirements & workflow: collect address/phone/license (active), background check requirement, dress code/clean car policy, car info + car photo + face photo; instruct applicants to email full details to cityprop01@gmail.com for approval.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Payments & earnings transparency: implement driver/company pay rules (company deductions/commissions per job, optional $2/job tax withholding with W2 issued; ensure customers see only their own charges while driver/company see their own breakdowns).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Internationalization: add language selector (English/Spanish/French) and default to device language (auto-detect) on first load.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Onboarding/help videos: add short instructional videos in customer app (how service works; paying drivers cash) and driver app (how they get paid; how Cityprop gets paid; how to accept cash payments).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Address + mileage pricing without GPS: allow pickup/dropoff address entry and add manual mileage input + automatic fee calculation rules (e.g., up to 10 miles pricing for pickup/shopping).",
       "reqIds": [],
       "status": "pending"
     }
@@ -254,7 +254,7 @@
     "Blob storage integration uses a gateway principal allowlist retrieved from a cashier canister; driver photos are stored as ExternalBlob references and rendered via getDirectURL() in the frontend.",
     "UI uses a shadcn-like component set with Tailwind, OKLCH CSS variables for theme tokens, and next-themes for light/dark/system toggling.",
     "Dashboards are role-based: landing page when unauthenticated; mandatory role selection and profile setup when authenticated without a profile; approval-pending screen when not approved; separate customer/driver/admin dashboards thereafter.",
-    "Repository includes a standardized React build-template scaffold (Dockerfile, deploy scripts, canister yamls, eslint rules, shadcn-style UI library, image resize/prune scripts) and an app-level i18n provider with translation resources."
+    "Repository/build-template and core canister modules were refreshed to newer component versions (authorization v4.0.0, stripe v3.0.0, http-outcalls v3.0.0, blob-storage v4.0.0, user-approval v3.0.0) along with build-template-react v1.0.0 tooling updates (Dockerfile, scripts, canister yamls, eslint rules, UI library baseline)."
   ],
   "known_issues": [
     "Driver onboarding logic conflict: backend saveCallerUserProfile downgrades any non-approved #driver profile to #customer, but requestApproval requires isDriver(caller) (based on stored profile). This prevents new drivers from successfully requesting approval unless an admin intervenes.",
@@ -265,12 +265,13 @@
     "Company earnings calculations sum TripCostCalculation.deposit and companyCommission; comments in UI mention specific per-booking allocations (e.g., $5), but backend lacks explicit tracking of company share vs full deposit amount, risking mismatched reporting.",
     "Environment variable typo risk: blob storage cashier principal env var key is 'CAFFFEINE_STORAGE_CASHIER_PRINCIPAL' (triple 'F') in multiple places; if intended to be 'CAFFEINE...', deployment configuration may fail.",
     "Duplicate/conflicting CSS file content appears in provided listing (frontend/src/index.css and frontend/index.css). If both exist in repo, it may cause theme token conflicts depending on build tooling and imports.",
-    "AccessControl.getUserRole traps if a principal is not registered; anonymous actor calls can trigger traps if any query path inadvertently requires #user permissions before initialization."
+    "AccessControl.getUserRole traps if a principal is not registered; anonymous actor calls can trigger traps if any query path inadvertently requires #user permissions before initialization.",
+    "True Uber-style GPS/maps and automatic mileage calculation are not supported; any mileage/distance logic must be manual or address-based without real-time tracking."
   ],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "generatedImages": [],
   "gameProjectType": "none",
-  "projectName": "Cityprop INC Multi-services",
+  "projectName": "Cityprop",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

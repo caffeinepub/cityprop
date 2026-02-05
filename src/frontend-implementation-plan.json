@@ -1,95 +1,20 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Address-based distance capture and <=10 mile deposit/fee enforcement in booking flow",
+  "title": "Promote Draft Version 29 to Production (Frontend Verification-Only)",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Collect pickup/dropoff addresses and coordinates in the booking flow, compute miles from coordinates, and show miles in the cost breakdown with coordinate capture actions.",
+      "summary": "Prepare a frontend-side publish and verification checklist to promote Draft Version 29 to production and confirm core UI routes render successfully after publish (no code changes unless a blocking issue is found).",
       "acceptanceCriteria": [
-        "Booking UI includes required inputs for Pickup address and Dropoff address.",
-        "Booking UI provides a way to capture/set pickup coordinates and dropoff coordinates from the browser (when permitted).",
-        "When both pickup and dropoff coordinates exist, the UI displays a calculated distance in miles and uses it as the trip’s estimated/recorded distance for pricing validation.",
-        "If coordinates are unavailable, the UI clearly indicates that distance cannot be calculated and blocks submission (or requires the user to set coordinates) for distance-based pricing."
+        "Draft Version 29 is promoted to production and becomes the default version users see.",
+        "A post-publish verification confirms the production app loads successfully and core routes render (Landing page, role selection, dashboards)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/utils/distance.ts",
+          "path": "frontend/ops/publish-draft-v29-to-production.md",
           "operation": "create",
-          "description": "Add a small utility for computing great-circle (Haversine) distance in miles between two coordinate pairs and formatting/display helpers for miles."
-        },
-        {
-          "path": "frontend/src/components/ServiceSelectionForm.tsx",
-          "operation": "modify",
-          "description": "Update the booking UI to explicitly collect Pickup and Dropoff addresses, add separate GPS actions to capture pickupCoordinates and dropoffCoordinates via browser geolocation, compute/display estimated miles when both coordinates are set, and block submission with a clear English message when coordinates are missing (since no geocoding is allowed)."
-        },
-        {
-          "path": "frontend/src/components/BookingRequestForm.tsx",
-          "operation": "modify",
-          "description": "Align the companion booking form UI with the pickup/dropoff address + coordinate capture model: add separate pickup/dropoff GPS capture actions, compute/display miles from coordinates in the cost breakdown, and prevent submission until both coordinate sets are present (no external geocoding)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Enforce pricing for distance <= 10 miles ($10 deposit + $25 fee) including Shopping services, and block submissions when distance > 10 miles; ensure Stripe checkout uses the $10 deposit line item only for the <=10 mile case.",
-      "acceptanceCriteria": [
-        "For eligible bookings with distance <= 10 miles, the displayed deposit is $10 and the displayed service fee is $25, and the total shown is $35.",
-        "For Shopping services, the same distance <= 10 miles rule results in the same $10 deposit + $25 service fee pricing.",
-        "If calculated distance > 10 miles, the UI blocks submission and shows an English error message indicating bookings are limited to 10 miles.",
-        "The Stripe checkout line items reflect the $10 deposit (in cents) and do not include any additional mileage charges for the <=10 mile case."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/ServiceSelectionForm.tsx",
-          "operation": "modify",
-          "description": "Implement distance-based pricing validation: when calculated miles <= 10, override displayed pricing to a $10 non-refundable deposit + $25 service fee (total $35) for all eligible services including Shopping; when miles > 10, disable/guard submission and show an English validation message stating pricing is only supported up to 10 miles. Ensure the Stripe deposit checkout session is created with a single $10 deposit ShoppingItem (1000 cents) and does not include additional mileage/time charges for the <=10 mile case."
-        },
-        {
-          "path": "frontend/src/components/BookingRequestForm.tsx",
-          "operation": "modify",
-          "description": "Apply the same <=10 mile enforcement to this booking flow if it remains reachable: show $10 deposit + $25 fee (total $35) when miles <= 10; block submission with an English message when miles > 10; ensure checkout items reflect a $10 deposit line item and do not add mileage/time charges for the <=10 mile case."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Make the $10 non-refundable deposit policy explicit before redirecting users to Stripe checkout.",
-      "acceptanceCriteria": [
-        "The booking UI clearly states in English that the deposit is non-refundable even if the service is canceled.",
-        "The copy is displayed before the user is redirected to Stripe checkout."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/ServiceSelectionForm.tsx",
-          "operation": "modify",
-          "description": "Add explicit English copy in the cost breakdown/confirmation area that the $10 deposit is non-refundable even if the customer cancels, and ensure it is visible before the Stripe redirect occurs."
-        },
-        {
-          "path": "frontend/src/components/BookingRequestForm.tsx",
-          "operation": "modify",
-          "description": "Add explicit English non-refundable deposit copy near the cost breakdown and ensure it is visible prior to redirecting to Stripe checkout."
-        }
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "summary": "Ensure the booking flow sends pickup/dropoff address details, coordinates (when captured), and computed distance so Trip records are created with consistent locationDetails and distance values.",
-      "acceptanceCriteria": [
-        "When a booking is created, the Trip stored in the backend includes pickupAddress and dropoffAddress in locationDetails.",
-        "When coordinates are captured, pickupCoordinates and dropoffCoordinates are stored in locationDetails.",
-        "Trip.distance is set (non-null) for distance-based bookings created through the updated flow."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/ServiceSelectionForm.tsx",
-          "operation": "modify",
-          "description": "When creating a Trip from the booking UI, populate Trip.locationDetails with pickupAddress/dropoffAddress and both coordinate sets when available, set Trip.distance to the computed miles value, and set Trip.startLocation/endLocation consistently from the captured pickup/dropoff coordinates (ensuring the Trip payload includes distance and location details)."
-        },
-        {
-          "path": "frontend/src/components/BookingRequestForm.tsx",
-          "operation": "modify",
-          "description": "If this flow creates Stripe sessions without creating trips, update it to carry/compute the same distance + pickup/dropoff details in UI state so the application can pass them into trip creation wherever that is performed in the client flow (ensuring distance and location details are available to be persisted)."
+          "description": "Create a production publish + verification checklist focused on frontend behavior only (LandingPage when logged out; RoleSelectionModal and ProfileSetupModal after login; AdminDashboard/ClientDashboard/DriverDashboard rendering paths from frontend/src/App.tsx). Include explicit note to follow the constraint: do not modify any source code unless a blocking production issue is discovered during verification, and if discovered, document the issue and minimal fix scope before implementation."
         }
       ]
     }

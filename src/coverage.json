@@ -1,85 +1,35 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-04T22:06:19.751Z",
+  "generatedAt": "2026-02-05T01:33:25.966Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 4,
-    "implemented": 4,
+    "total": 1,
+    "implemented": 1,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Update the customer booking flow UI to collect both pickup and dropoff addresses and calculate an estimated distance (miles) from pickup and dropoff coordinates when available. Provide a clear UI action to capture coordinates for both pickup and dropoff (e.g., a “Use current location” / GPS button for each address), and show the calculated miles in the cost breakdown.",
+        "summary": "Publish the currently deployed Draft Version 29 to the production environment, making it the active version served to end users.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/utils/distance.ts",
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
+          "frontend/ops/publish-draft-v29-to-production.md"
         ],
         "matchedFiles": [
-          "frontend/src/utils/distance.ts",
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
-        ]
-      },
-      {
-        "id": "REQ-2",
-        "summary": "Implement pricing rules for distance up to 10 miles: charge a $10 non-refundable deposit and a $25 service fee (total $35) for eligible bookings, and apply the same pricing rule to the Shopping booking flow (Shopping services). If the calculated distance is greater than 10 miles, prevent checkout/booking submission and show an English validation message stating that pricing is only supported up to 10 miles at this time.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
-        ]
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Make the non-refundable deposit policy explicit in the booking UI: add English user-facing copy in the booking cost breakdown and/or confirmation area stating that the $10 deposit is non-refundable even if the customer cancels the service.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
-        ]
-      },
-      {
-        "id": "REQ-4",
-        "summary": "Persist the computed distance and pickup/dropoff address details on the Trip record created for these bookings, ensuring backend Trip.distance (Float) and Trip.locationDetails (pickupAddress/dropoffAddress and coordinates when available) are populated consistently from the booking flow.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/ServiceSelectionForm.tsx",
-          "frontend/src/components/BookingRequestForm.tsx"
+          "frontend/ops/publish-draft-v29-to-production.md"
         ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/components/BookingRequestForm.tsx",
-    "frontend/src/components/ServiceSelectionForm.tsx",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
-    "frontend/src/utils/distance.ts",
+    "frontend/ops/publish-draft-v29-to-production.md",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

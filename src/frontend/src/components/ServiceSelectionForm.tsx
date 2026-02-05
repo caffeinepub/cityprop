@@ -15,6 +15,7 @@ import { useCreateDepositCheckoutSession, useGetAllDrivers, useCreateTrip } from
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { toast } from 'sonner';
 import { calculateDistance, formatDistance } from '../utils/distance';
+import { calculateTripPricing, isValidMilesForBooking, getMaxDistanceMiles } from '../utils/tripPricing';
 
 interface ServiceSelectionFormProps {
   userProfile: UserProfile;
@@ -42,9 +43,7 @@ const SERVICES: ServiceType[] = [
 ];
 
 const COMPANY_FEE = 7;
-const MAX_DISTANCE_MILES = 10;
-const DISTANCE_BASED_DEPOSIT = 10;
-const DISTANCE_BASED_SERVICE_FEE = 25;
+const MAX_DISTANCE_MILES = getMaxDistanceMiles();
 
 export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceSelectionFormProps) {
   const { identity } = useInternetIdentity();
@@ -53,6 +52,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropoffAddress, setDropoffAddress] = useState('');
   const [estimatedHours, setEstimatedHours] = useState('2');
+  const [tripMiles, setTripMiles] = useState('');
   const [notes, setNotes] = useState('');
   const [translatorNeeded, setTranslatorNeeded] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('card');
@@ -153,15 +153,16 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const calculateEstimate = () => {
     if (!selectedService) return { serviceFee: 0, deposit: 0, total: 0, driverEarnings: 0 };
     
-    const distanceMiles = calculateDistanceMiles();
-    
-    // For distance-based services (shopping-for, pickup) with distance <= 10 miles
-    if (isDistanceBasedService() && distanceMiles !== null && distanceMiles <= MAX_DISTANCE_MILES) {
-      const deposit = DISTANCE_BASED_DEPOSIT;
-      const serviceFee = DISTANCE_BASED_SERVICE_FEE;
-      const total = deposit + serviceFee;
-      const driverEarnings = serviceFee - COMPANY_FEE;
-      return { serviceFee, deposit, total, driverEarnings };
+    // For distance-based services, use manual miles input
+    if (isDistanceBasedService()) {
+      const miles = parseFloat(tripMiles) || null;
+      const pricing = calculateTripPricing(miles);
+      return {
+        serviceFee: pricing.serviceFee,
+        deposit: pricing.deposit,
+        total: pricing.total,
+        driverEarnings: pricing.driverEarnings,
+      };
     }
     
     // For hourly services, use original pricing
@@ -199,21 +200,11 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
       return;
     }
 
-    // For distance-based services, require coordinates
+    // For distance-based services, validate miles
     if (isDistanceBasedService()) {
-      if (!pickupCoordinates || !dropoffCoordinates) {
-        toast.error('Please capture both pickup and dropoff coordinates for distance calculation');
-        return;
-      }
-
-      const distanceMiles = calculateDistanceMiles();
-      if (distanceMiles === null) {
-        toast.error('Unable to calculate distance. Please capture coordinates.');
-        return;
-      }
-
-      if (distanceMiles > MAX_DISTANCE_MILES) {
-        toast.error(`Distance exceeds ${MAX_DISTANCE_MILES} miles. Bookings are limited to ${MAX_DISTANCE_MILES} miles.`);
+      const miles = parseFloat(tripMiles) || null;
+      if (!isValidMilesForBooking(miles)) {
+        toast.error(`Please enter trip miles (must be between 0 and ${MAX_DISTANCE_MILES} miles)`);
         return;
       }
     }
@@ -227,6 +218,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
     }
 
     const distanceMiles = calculateDistanceMiles();
+    const manualMiles = isDistanceBasedService() ? parseFloat(tripMiles) || undefined : undefined;
 
     try {
       // Create trip record first
@@ -260,9 +252,10 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
           dropoffAddress: dropoffAddress,
           dropoffCoordinates: dropoffCoordinates || undefined,
         },
-        specialRequests: `Service: ${selectedService.name}${notes ? `\nNotes: ${notes}` : ''}${selectedService.isHourly ? `\nEstimated hours: ${estimatedHours}` : ''}${distanceMiles ? `\nDistance: ${formatDistance(distanceMiles)}` : ''}`,
+        specialRequests: `Service: ${selectedService.name}${notes ? `\nNotes: ${notes}` : ''}${selectedService.isHourly ? `\nEstimated hours: ${estimatedHours}` : ''}${manualMiles ? `\nTrip miles: ${manualMiles.toFixed(1)}` : ''}`,
         translatorNeeded,
         helpLoadingItems: undefined,
+        miles: manualMiles,
       };
 
       await createTrip.mutateAsync(trip);
@@ -297,9 +290,9 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   };
 
   const estimate = calculateEstimate();
-  const distanceMiles = calculateDistanceMiles();
-  const showDistanceWarning = isDistanceBasedService() && distanceMiles !== null && distanceMiles > MAX_DISTANCE_MILES;
-  const canSubmit = !showDistanceWarning && (!isDistanceBasedService() || (pickupCoordinates && dropoffCoordinates));
+  const parsedMiles = parseFloat(tripMiles) || null;
+  const showMilesWarning = isDistanceBasedService() && parsedMiles !== null && parsedMiles > MAX_DISTANCE_MILES;
+  const canSubmit = !showMilesWarning && (!isDistanceBasedService() || isValidMilesForBooking(parsedMiles));
 
   if (!selectedService) {
     return (
@@ -352,8 +345,8 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             <Info className="h-4 w-4 text-primary" />
             <AlertDescription>
               <strong>Service:</strong> {selectedService.name}
-              {isDistanceBasedService() && distanceMiles !== null && distanceMiles <= MAX_DISTANCE_MILES ? (
-                <> - ${DISTANCE_BASED_DEPOSIT} deposit + ${DISTANCE_BASED_SERVICE_FEE} service fee (up to {MAX_DISTANCE_MILES} miles)</>
+              {isDistanceBasedService() && parsedMiles !== null && isValidMilesForBooking(parsedMiles) ? (
+                <> - ${estimate.deposit} deposit + ${estimate.serviceFee} service fee (up to {MAX_DISTANCE_MILES} miles)</>
               ) : (
                 <> - ${selectedService.deposit} deposit + {selectedService.rate}</>
               )}
@@ -480,19 +473,34 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             )}
           </div>
 
-          {/* Distance Display */}
-          {isDistanceBasedService() && distanceMiles !== null && (
-            <Alert className={showDistanceWarning ? "border-destructive/50 bg-destructive/10" : "border-primary/30 bg-primary/5"}>
-              <MapPin className={`h-4 w-4 ${showDistanceWarning ? 'text-destructive' : 'text-primary'}`} />
-              <AlertDescription>
-                <strong>Calculated Distance:</strong> {formatDistance(distanceMiles)}
-                {showDistanceWarning && (
-                  <div className="mt-1 text-destructive font-medium">
+          {/* Trip Miles (for distance-based services) */}
+          {isDistanceBasedService() && (
+            <div className="space-y-2">
+              <Label htmlFor="trip-miles">Trip Miles (manual entry) *</Label>
+              <Input 
+                id="trip-miles" 
+                type="number" 
+                step="0.1" 
+                min="0" 
+                max={MAX_DISTANCE_MILES}
+                value={tripMiles} 
+                onChange={(e) => setTripMiles(e.target.value)} 
+                placeholder="Enter estimated miles"
+                required 
+                className="border-primary/20 focus:ring-primary"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the estimated trip distance in miles (up to {MAX_DISTANCE_MILES} miles)
+              </p>
+              {showMilesWarning && (
+                <Alert className="border-destructive/50 bg-destructive/10">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <AlertDescription className="text-destructive">
                     Distance exceeds {MAX_DISTANCE_MILES} miles. Bookings are limited to {MAX_DISTANCE_MILES} miles.
-                  </div>
-                )}
-              </AlertDescription>
-            </Alert>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           )}
 
           {/* Estimated Hours (only for hourly services) */}
@@ -566,7 +574,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Service Fee {selectedService.isHourly ? `(${estimatedHours} hrs × $30/hr)` : '(flat rate)'}
+                  Service Fee {selectedService.isHourly ? `(${estimatedHours} hrs × $30/hr)` : isDistanceBasedService() && parsedMiles ? `(${parsedMiles.toFixed(1)} miles)` : '(flat rate)'}
                 </span>
                 <span className="font-medium">${estimate.serviceFee.toFixed(2)}</span>
               </div>

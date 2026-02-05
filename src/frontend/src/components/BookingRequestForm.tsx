@@ -9,29 +9,23 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MapPin, Clock, DollarSign, Loader2, Navigation, User, Car, Info, CreditCard, AlertTriangle } from 'lucide-react';
+import { MapPin, Loader2, Navigation, User, Car, CreditCard, AlertTriangle } from 'lucide-react';
 import { UserProfile, ShoppingItem } from '../backend';
 import { useCreateCheckoutSession, useGetAllDrivers } from '../hooks/useQueries';
 import { toast } from 'sonner';
 import { calculateDistance, formatDistance } from '../utils/distance';
+import { calculateTripPricing, isValidMilesForBooking, getMaxDistanceMiles } from '../utils/tripPricing';
 
 interface BookingRequestFormProps {
   userProfile: UserProfile;
   onCancel: () => void;
 }
 
-const DEPOSIT = 10;
-const COMPANY_ALLOCATION = 5;
-const HOURLY_RATE = 30;
-const MILEAGE_RATE = 1.5;
-const MAX_DISTANCE_MILES = 10;
-const DISTANCE_BASED_DEPOSIT = 10;
-const DISTANCE_BASED_SERVICE_FEE = 25;
+const MAX_DISTANCE_MILES = getMaxDistanceMiles();
 
 export default function BookingRequestForm({ userProfile, onCancel }: BookingRequestFormProps) {
   const [activityType, setActivityType] = useState('');
-  const [estimatedHours, setEstimatedHours] = useState('2');
-  const [estimatedMiles, setEstimatedMiles] = useState('10');
+  const [tripMiles, setTripMiles] = useState('');
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropoffAddress, setDropoffAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -116,35 +110,10 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
     );
   };
 
-  const calculateDistanceMiles = (): number | null => {
-    if (!pickupCoordinates || !dropoffCoordinates) return null;
-    return calculateDistance(
-      pickupCoordinates.latitude,
-      pickupCoordinates.longitude,
-      dropoffCoordinates.latitude,
-      dropoffCoordinates.longitude
-    );
-  };
-
-  const calculateEstimate = () => {
-    const distanceMiles = calculateDistanceMiles();
-    
-    // Check if distance-based pricing applies (distance <= 10 miles)
-    if (distanceMiles !== null && distanceMiles <= MAX_DISTANCE_MILES) {
-      const deposit = DISTANCE_BASED_DEPOSIT;
-      const serviceFee = DISTANCE_BASED_SERVICE_FEE;
-      const total = deposit + serviceFee;
-      return { hourCost: 0, mileageCost: serviceFee, total, deposit, serviceFee };
-    }
-    
-    // Original pricing for > 10 miles (blocked) or no coordinates
-    const hours = parseFloat(estimatedHours) || 0;
-    const miles = parseFloat(estimatedMiles) || 0;
-    const hourCost = hours * HOURLY_RATE;
-    const mileageCost = miles * MILEAGE_RATE;
-    const total = DEPOSIT + hourCost + mileageCost;
-    return { hourCost, mileageCost, total, deposit: DEPOSIT, serviceFee: hourCost + mileageCost };
-  };
+  const parsedMiles = parseFloat(tripMiles) || null;
+  const pricing = calculateTripPricing(parsedMiles);
+  const showMilesWarning = parsedMiles !== null && parsedMiles > MAX_DISTANCE_MILES;
+  const canSubmit = !showMilesWarning && isValidMilesForBooking(parsedMiles);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,31 +128,17 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
       return;
     }
 
-    if (!pickupCoordinates || !dropoffCoordinates) {
-      toast.error('Please capture both pickup and dropoff coordinates for distance calculation');
+    if (!isValidMilesForBooking(parsedMiles)) {
+      toast.error(`Please enter trip miles (must be between 0 and ${MAX_DISTANCE_MILES} miles)`);
       return;
     }
-
-    const distanceMiles = calculateDistanceMiles();
-    if (distanceMiles === null) {
-      toast.error('Unable to calculate distance. Please capture coordinates.');
-      return;
-    }
-
-    if (distanceMiles > MAX_DISTANCE_MILES) {
-      toast.error(`Distance exceeds ${MAX_DISTANCE_MILES} miles. Bookings are limited to ${MAX_DISTANCE_MILES} miles.`);
-      return;
-    }
-
-    const estimate = calculateEstimate();
-    const selectedDriver = drivers.find(d => d.driverId.toString() === selectedDriverId);
 
     // Create shopping items for Stripe checkout
     const items: ShoppingItem[] = [
       {
         productName: 'Companion Service Deposit',
         productDescription: `Non-refundable booking deposit for up to ${MAX_DISTANCE_MILES} miles`,
-        priceInCents: BigInt(estimate.deposit * 100),
+        priceInCents: BigInt(pricing.deposit * 100),
         quantity: BigInt(1),
         currency: 'usd',
       },
@@ -207,11 +162,6 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
       toast.error('Failed to create booking: ' + error.message);
     }
   };
-
-  const estimate = calculateEstimate();
-  const distanceMiles = calculateDistanceMiles();
-  const showDistanceWarning = distanceMiles !== null && distanceMiles > MAX_DISTANCE_MILES;
-  const canSubmit = !showDistanceWarning && pickupCoordinates && dropoffCoordinates;
 
   return (
     <Card className="mb-8 border-primary/20 shadow-gold-lg">
@@ -358,20 +308,33 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
             )}
           </div>
 
-          {/* Distance Display */}
-          {distanceMiles !== null && (
-            <Alert className={showDistanceWarning ? "border-destructive/50 bg-destructive/10" : "border-primary/30 bg-primary/5"}>
-              <MapPin className={`h-4 w-4 ${showDistanceWarning ? 'text-destructive' : 'text-primary'}`} />
-              <AlertDescription>
-                <strong>Calculated Distance:</strong> {formatDistance(distanceMiles)}
-                {showDistanceWarning && (
-                  <div className="mt-1 text-destructive font-medium">
-                    Distance exceeds {MAX_DISTANCE_MILES} miles. Bookings are limited to {MAX_DISTANCE_MILES} miles.
-                  </div>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Trip Miles */}
+          <div className="space-y-2">
+            <Label htmlFor="trip-miles">Trip Miles (manual entry) *</Label>
+            <Input 
+              id="trip-miles" 
+              type="number" 
+              step="0.1" 
+              min="0" 
+              max={MAX_DISTANCE_MILES}
+              value={tripMiles} 
+              onChange={(e) => setTripMiles(e.target.value)} 
+              placeholder="Enter estimated miles"
+              required 
+              className="border-primary/20 focus:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter the estimated trip distance in miles (up to {MAX_DISTANCE_MILES} miles)
+            </p>
+            {showMilesWarning && (
+              <Alert className="border-destructive/50 bg-destructive/10">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <AlertDescription className="text-destructive">
+                  Distance exceeds {MAX_DISTANCE_MILES} miles. Bookings are limited to {MAX_DISTANCE_MILES} miles.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
 
           {/* Notes */}
           <div className="space-y-2">
@@ -392,23 +355,23 @@ export default function BookingRequestForm({ userProfile, onCancel }: BookingReq
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Non-refundable Deposit</span>
-                <span className="font-medium">${estimate.deposit.toFixed(2)}</span>
+                <span className="font-medium">${pricing.deposit.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Service Fee (up to {MAX_DISTANCE_MILES} miles)
+                  Service Fee {parsedMiles ? `(${parsedMiles.toFixed(1)} miles)` : '(up to 10 miles)'}
                 </span>
-                <span className="font-medium">${estimate.serviceFee.toFixed(2)}</span>
+                <span className="font-medium">${pricing.serviceFee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between border-t border-primary/30 pt-2 text-base">
                 <span className="font-semibold">Total</span>
-                <span className="font-bold text-primary">${estimate.total.toFixed(2)}</span>
+                <span className="font-bold text-primary">${pricing.total.toFixed(2)}</span>
               </div>
             </div>
             <Alert className="mt-3 border-destructive/50 bg-destructive/10">
               <AlertTriangle className="h-4 w-4 text-destructive" />
               <AlertDescription className="text-xs text-destructive">
-                <strong>Non-Refundable Deposit:</strong> The ${estimate.deposit.toFixed(2)} deposit is non-refundable even if you cancel the service.
+                <strong>Non-Refundable Deposit:</strong> The ${pricing.deposit.toFixed(2)} deposit is non-refundable even if you cancel the service.
               </AlertDescription>
             </Alert>
           </div>

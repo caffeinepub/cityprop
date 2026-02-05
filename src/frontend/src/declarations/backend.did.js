@@ -82,6 +82,7 @@ export const TripStatus = IDL.Variant({
 });
 export const Trip = IDL.Record({
   'startTime' : IDL.Int,
+  'miles' : IDL.Opt(IDL.Float64),
   'driverId' : IDL.Opt(IDL.Principal),
   'duration' : IDL.Opt(IDL.Float64),
   'clientId' : IDL.Principal,
@@ -317,6 +318,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateTripMiles' : IDL.Func([IDL.Nat, IDL.Float64], [], []),
   'updateTripPaymentStatus' : IDL.Func([IDL.Nat, PaymentStatus], [], []),
   'updateTripStatus' : IDL.Func(
       [IDL.Nat, TripStatus, IDL.Opt(StatusUpdate)],
@@ -404,6 +406,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const Trip = IDL.Record({
     'startTime' : IDL.Int,
+    'miles' : IDL.Opt(IDL.Float64),
     'driverId' : IDL.Opt(IDL.Principal),
     'duration' : IDL.Opt(IDL.Float64),
     'clientId' : IDL.Principal,
@@ -645,6 +648,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'updateTripMiles' : IDL.Func([IDL.Nat, IDL.Float64], [], []),
     'updateTripPaymentStatus' : IDL.Func([IDL.Nat, PaymentStatus], [], []),
     'updateTripStatus' : IDL.Func(
         [IDL.Nat, TripStatus, IDL.Opt(StatusUpdate)],

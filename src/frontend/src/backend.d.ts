@@ -16,6 +16,7 @@ export class ExternalBlob {
 }
 export interface Trip {
     startTime: bigint;
+    miles?: number;
     driverId?: Principal;
     duration?: number;
     clientId: Principal;
@@ -263,6 +264,7 @@ export interface backendInterface {
     updateDriverEarnings(driverId: Principal, paymentBreakdown: PaymentBreakdown): Promise<void>;
     updateHelpLoadingItems(tripId: bigint, helpLoading: boolean): Promise<void>;
     updatePaymentBreakdown(driverId: Principal, newPaymentBreakdown: PaymentBreakdown): Promise<void>;
+    updateTripMiles(tripId: bigint, miles: number): Promise<void>;
     updateTripPaymentStatus(tripId: bigint, newStatus: PaymentStatus): Promise<void>;
     updateTripStatus(tripId: bigint, newStatus: TripStatus, statusUpdate: StatusUpdate | null): Promise<void>;
     uploadDriverPhoto(photo: ExternalBlob): Promise<ExternalBlob>;

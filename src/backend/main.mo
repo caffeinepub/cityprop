@@ -5,7 +5,7 @@ import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import UserApproval "user-approval/approval";
-import Migration "migration";
+
 
 import Map "mo:core/Map";
 import Array "mo:core/Array";
@@ -17,7 +17,10 @@ import Text "mo:core/Text";
 import Float "mo:core/Float";
 import Runtime "mo:core/Runtime";
 
-(with migration = Migration.run)
+
+
+// Apply migration function on upgrade
+
 actor {
   type Coordinates = {
     latitude : Float;
@@ -71,6 +74,7 @@ actor {
     specialRequests : Text;
     translatorNeeded : Bool;
     helpLoadingItems : ?Bool;
+    miles : ?Float;
   };
 
   public type LocationDetails = {
@@ -355,10 +359,13 @@ actor {
   };
 
   public shared ({ caller }) func saveDriverProfile(profile : DriverProfile) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save driver profiles");
+    };
     if (caller != profile.driverId and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only save your own driver profile");
     };
-    if (not isDriver(profile.driverId) and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (not isDriver(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only drivers can save driver profiles");
     };
     if (not AccessControl.isAdmin(accessControlState, caller) and not UserApproval.isApproved(approvalState, caller)) {
@@ -402,21 +409,33 @@ actor {
     };
   };
 
-  public query func getDriverPhoto(driverId : Principal) : async ?Storage.ExternalBlob {
+  public query ({ caller }) func getDriverPhoto(driverId : Principal) : async ?Storage.ExternalBlob {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view driver photos");
+    };
     driverPhotos.get(driverId);
   };
 
-  public query func getAllDrivers() : async [DriverProfile] {
+  public query ({ caller }) func getAllDrivers() : async [DriverProfile] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view drivers");
+    };
     drivers.values().toArray().filter(func(driver) {
       UserApproval.isApproved(approvalState, driver.driverId);
     });
   };
 
-  public query func getDriver(driverId : Principal) : async ?DriverProfile {
+  public query ({ caller }) func getDriver(driverId : Principal) : async ?DriverProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view driver profiles");
+    };
     drivers.get(driverId);
   };
 
-  public query func getAllDriverProfilesWithPhotos() : async [(DriverProfile, ?Storage.ExternalBlob)] {
+  public query ({ caller }) func getAllDriverProfilesWithPhotos() : async [(DriverProfile, ?Storage.ExternalBlob)] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view driver profiles");
+    };
     drivers.keys().toArray().filter(func(driverId) {
       UserApproval.isApproved(approvalState, driverId);
     }).map(func(driverId) {
@@ -431,22 +450,20 @@ actor {
   // Trip Management
   ////////////////////////////////////////
   public shared ({ caller }) func createTrip(trip : Trip) : async Nat {
-    // Authorization: Only authenticated users can create trips
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create trips");
     };
 
-    // Authorization: Only customers can create trips (unless admin)
-    if (not isCustomer(caller) and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only customers can create trips");
+    if (not AccessControl.isAdmin(accessControlState, caller)) {
+      if (not isCustomer(caller)) {
+        Runtime.trap("Unauthorized: Only customers can create trips");
+      };
+
+      if (caller != trip.clientId) {
+        Runtime.trap("Unauthorized: Can only create trips for yourself");
+      };
     };
 
-    // Authorization: Non-admins can only create trips for themselves
-    if (caller != trip.clientId and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only create trips for yourself");
-    };
-
-    // Authorization: Verify selected driver is approved
     switch (trip.driverId) {
       case (?driverId) {
         if (not UserApproval.isApproved(approvalState, driverId)) {
@@ -469,7 +486,6 @@ actor {
           case (?dId) { caller == dId };
           case (null) { false };
         };
-        // Authorization: Only trip participants or admins can view trip details
         if (not (isClient or isDriver) and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Unauthorized: Can only view your own trips");
         };
@@ -516,7 +532,6 @@ actor {
     };
   };
 
-  // Authorization: Only admins can update payment status (typically after payment verification)
   public shared ({ caller }) func updateTripPaymentStatus(tripId : Nat, newStatus : PaymentStatus) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can update payment status");
@@ -527,7 +542,6 @@ actor {
     trips.add(tripId, updatedTrip);
   };
 
-  // New function: Update trip status with proper authorization
   public shared ({ caller }) func updateTripStatus(tripId : Nat, newStatus : TripStatus, statusUpdate : ?StatusUpdate) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can update trip status");
@@ -542,25 +556,21 @@ actor {
     };
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
 
-    // Authorization: Only trip participants or admins can update status
     if (not (isClient or isDriver or isAdmin)) {
       Runtime.trap("Unauthorized: Can only update status for your own trips");
     };
 
-    // Authorization: Customers can only cancel pending trips
     if (isClient and not isAdmin) {
       if (newStatus != #cancelled or trip.tripStatus != #pending) {
         Runtime.trap("Unauthorized: Customers can only cancel pending trips");
       };
     };
 
-    // Authorization: Drivers can accept, start, and complete trips
     if (isDriver and not isAdmin) {
       if (not UserApproval.isApproved(approvalState, caller)) {
         Runtime.trap("Unauthorized: Only approved drivers can update trip status");
       };
 
-      // Drivers cannot cancel trips (only customers can)
       if (newStatus == #cancelled) {
         Runtime.trap("Unauthorized: Drivers cannot cancel trips");
       };
@@ -574,7 +584,6 @@ actor {
     trips.add(tripId, updatedTrip);
   };
 
-  // New function: Update help loading items (driver completing shopping trip)
   public shared ({ caller }) func updateHelpLoadingItems(tripId : Nat, helpLoading : Bool) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can update trip details");
@@ -582,7 +591,6 @@ actor {
 
     let trip = getTripSync(tripId);
 
-    // Authorization: Only the assigned driver or admin can update this field
     let isAssignedDriver = switch (trip.driverId) {
       case (?driverId) { caller == driverId };
       case (null) { false };
@@ -592,12 +600,35 @@ actor {
       Runtime.trap("Unauthorized: Only the assigned driver can update help loading items");
     };
 
-    // Authorization: Driver must be approved
     if (not AccessControl.isAdmin(accessControlState, caller) and not UserApproval.isApproved(approvalState, caller)) {
       Runtime.trap("Unauthorized: Only approved drivers can update trip details");
     };
 
     let updatedTrip = { trip with helpLoadingItems = ?helpLoading };
+    trips.add(tripId, updatedTrip);
+  };
+
+  public shared ({ caller }) func updateTripMiles(tripId : Nat, miles : Float) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update trip details");
+    };
+
+    let trip = getTripSync(tripId);
+
+    let isAssignedDriver = switch (trip.driverId) {
+      case (?driverId) { caller == driverId };
+      case (null) { false };
+    };
+
+    if (not isAssignedDriver and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only the assigned driver can update trip miles");
+    };
+
+    if (not AccessControl.isAdmin(accessControlState, caller) and not UserApproval.isApproved(approvalState, caller)) {
+      Runtime.trap("Unauthorized: Only approved drivers can update trip details");
+    };
+
+    let updatedTrip = { trip with miles = ?miles };
     trips.add(tripId, updatedTrip);
   };
 
@@ -853,4 +884,3 @@ actor {
     UserApproval.listApprovals(approvalState);
   };
 };
-

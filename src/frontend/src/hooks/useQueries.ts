@@ -194,6 +194,23 @@ export function useUpdateHelpLoadingItems() {
   });
 }
 
+export function useUpdateTripMiles() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { tripId: bigint; miles: number }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.updateTripMiles(params.tripId, params.miles);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['clientTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['trip'] });
+    },
+  });
+}
+
 export function useGetDriverEarnings(driverId?: Principal) {
   const { actor, isFetching: actorFetching } = useActor();
 

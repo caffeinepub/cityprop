@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { MapPin, Calendar, DollarSign, User, Car, Clock, CheckCircle, Languages, ShoppingBag, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { Trip, TripStatus, PaymentStatus } from '../backend';
-import { useUpdateHelpLoadingItems, useUpdateTripStatus, useGetTrip } from '../hooks/useQueries';
+import { useUpdateHelpLoadingItems, useUpdateTripStatus, useGetTrip, useUpdateTripMiles } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { toast } from 'sonner';
 import { getTripProgress, getNextStatusForAction } from '../utils/tripProgress';
+import { calculateTripPricing } from '../utils/tripPricing';
 
 interface TripDetailsDialogProps {
   tripId?: bigint;
@@ -28,8 +29,10 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
   const [driverMessage, setDriverMessage] = useState('');
   const [completionTotal, setCompletionTotal] = useState('');
   const [completionDetails, setCompletionDetails] = useState('');
+  const [actualMiles, setActualMiles] = useState('');
   const updateHelpLoading = useUpdateHelpLoadingItems();
   const updateTripStatus = useUpdateTripStatus();
+  const updateTripMiles = useUpdateTripMiles();
 
   if (!trip) return null;
 
@@ -38,6 +41,7 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
   const hasAnsweredHelpLoading = trip.helpLoadingItems !== null;
 
   const tripProgress = getTripProgress(trip.tripStatus, trip.statusUpdate);
+  const pricing = calculateTripPricing(trip.miles);
 
   const handleSaveHelpLoading = async (answer: boolean) => {
     try {
@@ -49,6 +53,25 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
       toast.success('Response saved successfully');
     } catch (error: any) {
       toast.error('Failed to save response: ' + error.message);
+    }
+  };
+
+  const handleUpdateMiles = async () => {
+    const miles = parseFloat(actualMiles);
+    if (isNaN(miles) || miles < 0) {
+      toast.error('Please enter a valid miles value');
+      return;
+    }
+
+    try {
+      await updateTripMiles.mutateAsync({
+        tripId: trip.tripId,
+        miles,
+      });
+      setActualMiles('');
+      toast.success('Trip miles updated successfully');
+    } catch (error: any) {
+      toast.error('Failed to update miles: ' + error.message);
     }
   };
 
@@ -284,6 +307,56 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
             </>
           )}
 
+          {/* Driver Miles Update */}
+          {isDriver && trip.tripStatus !== TripStatus.cancelled && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  Actual Miles Driven
+                </h3>
+                
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                  <div>
+                    <Label htmlFor="actual-miles" className="text-sm">
+                      Enter Actual Miles Driven
+                    </Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="actual-miles"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="0.0"
+                        value={actualMiles}
+                        onChange={(e) => setActualMiles(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={handleUpdateMiles}
+                        disabled={updateTripMiles.isPending || !actualMiles}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        {updateTripMiles.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Save'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {trip.miles !== null && trip.miles !== undefined && (
+                    <div className="pt-2 border-t border-primary/20">
+                      <p className="text-sm text-muted-foreground">Current Miles: <span className="font-medium text-foreground">{trip.miles.toFixed(1)} miles</span></p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
           <Separator />
 
           {/* Location Details */}
@@ -345,10 +418,10 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
                 </div>
               )}
               
-              {trip.distance && (
+              {trip.miles !== null && trip.miles !== undefined && (
                 <div className="rounded-lg border border-border bg-background p-3">
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Distance</p>
-                  <p className="text-sm">{trip.distance.toFixed(2)} miles</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Trip Miles</p>
+                  <p className="text-sm">{trip.miles.toFixed(1)} miles</p>
                 </div>
               )}
               
@@ -438,7 +511,7 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
           )}
 
           {/* Cost Breakdown */}
-          {trip.tripCostCalculation && (
+          {(trip.tripCostCalculation || (trip.miles !== null && trip.miles !== undefined)) && (
             <>
               <Separator />
               <div className="space-y-4">
@@ -448,23 +521,47 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
                 </h3>
                 
                 <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Deposit</span>
-                    <span className="font-medium">${trip.tripCostCalculation.deposit.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Service Fee</span>
-                    <span className="font-medium">${trip.tripCostCalculation.durationCost.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Company Commission</span>
-                    <span className="font-medium">${trip.tripCostCalculation.companyCommission.toFixed(2)}</span>
-                  </div>
-                  <Separator className="bg-primary/20" />
-                  <div className="flex justify-between text-base">
-                    <span className="font-semibold">Total Cost</span>
-                    <span className="font-bold text-primary">${trip.tripCostCalculation.totalCost.toFixed(2)}</span>
-                  </div>
+                  {trip.miles !== null && trip.miles !== undefined && pricing.total > 0 ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Deposit</span>
+                        <span className="font-medium">${pricing.deposit.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Service Fee ({trip.miles.toFixed(1)} miles)</span>
+                        <span className="font-medium">${pricing.serviceFee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Company Commission</span>
+                        <span className="font-medium">${pricing.companyFee.toFixed(2)}</span>
+                      </div>
+                      <Separator className="bg-primary/20" />
+                      <div className="flex justify-between text-base">
+                        <span className="font-semibold">Total Cost</span>
+                        <span className="font-bold text-primary">${pricing.total.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : trip.tripCostCalculation ? (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Deposit</span>
+                        <span className="font-medium">${trip.tripCostCalculation.deposit.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Service Fee</span>
+                        <span className="font-medium">${trip.tripCostCalculation.durationCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Company Commission</span>
+                        <span className="font-medium">${trip.tripCostCalculation.companyCommission.toFixed(2)}</span>
+                      </div>
+                      <Separator className="bg-primary/20" />
+                      <div className="flex justify-between text-base">
+                        <span className="font-semibold">Total Cost</span>
+                        <span className="font-bold text-primary">${trip.tripCostCalculation.totalCost.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </>

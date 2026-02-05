@@ -91,6 +91,7 @@ export class ExternalBlob {
 }
 export interface Trip {
     startTime: bigint;
+    miles?: number;
     driverId?: Principal;
     duration?: number;
     clientId: Principal;
@@ -356,6 +357,7 @@ export interface backendInterface {
     updateDriverEarnings(driverId: Principal, paymentBreakdown: PaymentBreakdown): Promise<void>;
     updateHelpLoadingItems(tripId: bigint, helpLoading: boolean): Promise<void>;
     updatePaymentBreakdown(driverId: Principal, newPaymentBreakdown: PaymentBreakdown): Promise<void>;
+    updateTripMiles(tripId: bigint, miles: number): Promise<void>;
     updateTripPaymentStatus(tripId: bigint, newStatus: PaymentStatus): Promise<void>;
     updateTripStatus(tripId: bigint, newStatus: TripStatus, statusUpdate: StatusUpdate | null): Promise<void>;
     uploadDriverPhoto(photo: ExternalBlob): Promise<ExternalBlob>;
@@ -1064,6 +1066,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateTripMiles(arg0: bigint, arg1: number): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTripMiles(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTripMiles(arg0, arg1);
+            return result;
+        }
+    }
     async updateTripPaymentStatus(arg0: bigint, arg1: PaymentStatus): Promise<void> {
         if (this.processError) {
             try {
@@ -1181,10 +1197,10 @@ async function from_candid_opt_n33(_uploadFile: (file: ExternalBlob) => Promise<
 async function from_candid_opt_n34(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): Promise<UserProfile | null> {
     return value.length === 0 ? null : await from_candid_UserProfile_n35(_uploadFile, _downloadFile, value[0]);
 }
-function from_candid_opt_n44(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [Principal]): Principal | null {
+function from_candid_opt_n44(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [number]): number | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n45(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [number]): number | null {
+function from_candid_opt_n45(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [Principal]): Principal | null {
     return value.length === 0 ? null : value[0];
 }
 function from_candid_opt_n48(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
@@ -1285,6 +1301,7 @@ async function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promi
 }
 function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     startTime: bigint;
+    miles: [] | [number];
     driverId: [] | [Principal];
     duration: [] | [number];
     clientId: Principal;
@@ -1305,6 +1322,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
     depositPaid: boolean;
 }): {
     startTime: bigint;
+    miles?: number;
     driverId?: Principal;
     duration?: number;
     clientId: Principal;
@@ -1326,14 +1344,15 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
 } {
     return {
         startTime: value.startTime,
-        driverId: record_opt_to_undefined(from_candid_opt_n44(_uploadFile, _downloadFile, value.driverId)),
-        duration: record_opt_to_undefined(from_candid_opt_n45(_uploadFile, _downloadFile, value.duration)),
+        miles: record_opt_to_undefined(from_candid_opt_n44(_uploadFile, _downloadFile, value.miles)),
+        driverId: record_opt_to_undefined(from_candid_opt_n45(_uploadFile, _downloadFile, value.driverId)),
+        duration: record_opt_to_undefined(from_candid_opt_n44(_uploadFile, _downloadFile, value.duration)),
         clientId: value.clientId,
         paymentStatus: from_candid_PaymentStatus_n46(_uploadFile, _downloadFile, value.paymentStatus),
         endTime: record_opt_to_undefined(from_candid_opt_n48(_uploadFile, _downloadFile, value.endTime)),
         specialRequests: value.specialRequests,
         tripId: value.tripId,
-        totalCost: record_opt_to_undefined(from_candid_opt_n45(_uploadFile, _downloadFile, value.totalCost)),
+        totalCost: record_opt_to_undefined(from_candid_opt_n44(_uploadFile, _downloadFile, value.totalCost)),
         distance: value.distance,
         translatorNeeded: value.translatorNeeded,
         endLocation: record_opt_to_undefined(from_candid_opt_n49(_uploadFile, _downloadFile, value.endLocation)),
@@ -1641,6 +1660,7 @@ function to_candid_opt_n80(_uploadFile: (file: ExternalBlob) => Promise<Uint8Arr
 }
 function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     startTime: bigint;
+    miles?: number;
     driverId?: Principal;
     duration?: number;
     clientId: Principal;
@@ -1661,6 +1681,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     depositPaid: boolean;
 }): {
     startTime: bigint;
+    miles: [] | [number];
     driverId: [] | [Principal];
     duration: [] | [number];
     clientId: Principal;
@@ -1682,6 +1703,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
 } {
     return {
         startTime: value.startTime,
+        miles: value.miles ? candid_some(value.miles) : candid_none(),
         driverId: value.driverId ? candid_some(value.driverId) : candid_none(),
         duration: value.duration ? candid_some(value.duration) : candid_none(),
         clientId: value.clientId,
