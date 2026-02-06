@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-publish-the-currently-deployed-draft-version-29-to-the-production-environment-making-it-the-active-version-served-to-end-users",
-      "featureTitle": "Publish the currently deployed Draft Version 29 to the production environment, making it the active version served to end users.",
+      "featureId": "feature-update-the-frontend-driver-decline-action-to-call-the-updated-backend-declinetrip-api-with-the-provided-reason-and-ensure-all-affected-trip-lists-refresh-correctly-after-accept-decline",
+      "featureTitle": "Update the frontend driver decline action to call the updated backend declineTrip API with the provided reason, and ensure all affected trip lists refresh correctly after accept/decline.",
       "files": [
-        "frontend/ops/publish-draft-v29-to-production.md"
+        "frontend/src/hooks/useQueries.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -20,7 +20,7 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-1"
+        "REQ-9"
       ],
       "confidence": "high"
     }

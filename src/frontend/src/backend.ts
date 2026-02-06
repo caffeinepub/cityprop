@@ -103,6 +103,7 @@ export interface Trip {
     distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
+    declineReason?: string;
     helpLoadingItems?: boolean;
     tripCostCalculation?: TripCostCalculation;
     startLocation: Coordinates;
@@ -314,6 +315,7 @@ export interface backendInterface {
     _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    acceptAndClaimTrip(tripId: bigint): Promise<void>;
     addVehicle(vehicle: GeneralVehicleTag): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     calculateTotalDistance(driverId: Principal): Promise<number>;
@@ -323,6 +325,7 @@ export interface backendInterface {
     createDriverStripeAccountId(stripeAccountId: string): Promise<void>;
     createFinalPaymentCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createTrip(trip: Trip): Promise<bigint>;
+    declineTrip(tripId: bigint, reason: string): Promise<void>;
     disconnectDriverStripeAccount(): Promise<void>;
     getAllDriverEarnings(): Promise<Array<DriverEarnings>>;
     getAllDriverProfilesWithPhotos(): Promise<Array<[DriverProfile, ExternalBlob | null]>>;
@@ -337,6 +340,7 @@ export interface backendInterface {
     getDriverEarnings(driverId: Principal): Promise<DriverEarnings | null>;
     getDriverPhoto(driverId: Principal): Promise<ExternalBlob | null>;
     getDriverTrips(): Promise<Array<Trip>>;
+    getPendingTripsOfDriver(): Promise<Array<Trip>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getTotalCompletedJobs(driverId: Principal): Promise<bigint>;
     getTrip(tripId: bigint): Promise<Trip | null>;
@@ -464,6 +468,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async acceptAndClaimTrip(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.acceptAndClaimTrip(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.acceptAndClaimTrip(arg0);
+            return result;
+        }
+    }
     async addVehicle(arg0: GeneralVehicleTag): Promise<void> {
         if (this.processError) {
             try {
@@ -587,6 +605,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createTrip(to_candid_Trip_n10(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async declineTrip(arg0: bigint, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.declineTrip(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.declineTrip(arg0, arg1);
             return result;
         }
     }
@@ -783,6 +815,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getDriverTrips();
+            return from_candid_vec_n41(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getPendingTripsOfDriver(): Promise<Array<Trip>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPendingTripsOfDriver();
+                return from_candid_vec_n41(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPendingTripsOfDriver();
             return from_candid_vec_n41(this._uploadFile, this._downloadFile, result);
         }
     }
@@ -1313,6 +1359,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
     distance: number;
     translatorNeeded: boolean;
     endLocation: [] | [_Coordinates];
+    declineReason: [] | [string];
     helpLoadingItems: [] | [boolean];
     tripCostCalculation: [] | [_TripCostCalculation];
     startLocation: _Coordinates;
@@ -1334,6 +1381,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
     distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
+    declineReason?: string;
     helpLoadingItems?: boolean;
     tripCostCalculation?: TripCostCalculation;
     startLocation: Coordinates;
@@ -1356,6 +1404,7 @@ function from_candid_record_n43(_uploadFile: (file: ExternalBlob) => Promise<Uin
         distance: value.distance,
         translatorNeeded: value.translatorNeeded,
         endLocation: record_opt_to_undefined(from_candid_opt_n49(_uploadFile, _downloadFile, value.endLocation)),
+        declineReason: record_opt_to_undefined(from_candid_opt_n24(_uploadFile, _downloadFile, value.declineReason)),
         helpLoadingItems: record_opt_to_undefined(from_candid_opt_n6(_uploadFile, _downloadFile, value.helpLoadingItems)),
         tripCostCalculation: record_opt_to_undefined(from_candid_opt_n50(_uploadFile, _downloadFile, value.tripCostCalculation)),
         startLocation: value.startLocation,
@@ -1672,6 +1721,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
+    declineReason?: string;
     helpLoadingItems?: boolean;
     tripCostCalculation?: TripCostCalculation;
     startLocation: Coordinates;
@@ -1693,6 +1743,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     distance: number;
     translatorNeeded: boolean;
     endLocation: [] | [_Coordinates];
+    declineReason: [] | [string];
     helpLoadingItems: [] | [boolean];
     tripCostCalculation: [] | [_TripCostCalculation];
     startLocation: _Coordinates;
@@ -1715,6 +1766,7 @@ function to_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         distance: value.distance,
         translatorNeeded: value.translatorNeeded,
         endLocation: value.endLocation ? candid_some(value.endLocation) : candid_none(),
+        declineReason: value.declineReason ? candid_some(value.declineReason) : candid_none(),
         helpLoadingItems: value.helpLoadingItems ? candid_some(value.helpLoadingItems) : candid_none(),
         tripCostCalculation: value.tripCostCalculation ? candid_some(value.tripCostCalculation) : candid_none(),
         startLocation: value.startLocation,

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, Calendar, AlertCircle, Mail, Eye } from 'lucide-react';
+import { MapPin, Clock, Calendar, AlertCircle, Mail, Eye, ArrowRight } from 'lucide-react';
 import { UserProfile, TripStatus } from '../backend';
 import { useI18n } from '../i18n/useI18n';
 import { useGetClientTrips } from '../hooks/useQueries';
@@ -35,6 +35,12 @@ export default function ClientDashboard({ userProfile }: ClientDashboardProps) {
     setShowTripDetails(true);
   };
 
+  const handleBookingComplete = (tripId: bigint) => {
+    setShowServiceSelection(false);
+    setSelectedTripId(tripId);
+    setShowTripDetails(true);
+  };
+
   return (
     <div className="container py-8">
       <StripeSetupCheck />
@@ -43,6 +49,37 @@ export default function ClientDashboard({ userProfile }: ClientDashboardProps) {
         <h1 className="mb-2 text-3xl font-bold text-foreground">{t('client.welcome')} <span className="text-primary">{userProfile.name}</span>!</h1>
         <p className="text-muted-foreground">{t('client.subtitle')}</p>
       </div>
+
+      {/* Prominent Uber-like CTA */}
+      {!showServiceSelection && (
+        <Card className="mb-8 border-primary/30 shadow-gold-lg bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardContent className="pt-8 pb-8">
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-3xl font-bold text-foreground">Where are you going?</h2>
+                <p className="text-lg text-muted-foreground">Request a ride or service now</p>
+              </div>
+              <Button 
+                onClick={() => setShowServiceSelection(true)} 
+                size="lg" 
+                className="w-full max-w-md h-14 text-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-gold-lg"
+              >
+                Request a Service
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Interactive Booking Form */}
+      {showServiceSelection && (
+        <ServiceSelectionForm 
+          userProfile={userProfile} 
+          onCancel={() => setShowServiceSelection(false)}
+          onComplete={handleBookingComplete}
+        />
+      )}
 
       {/* Quick Stats */}
       <div className="mb-8 grid gap-4 md:grid-cols-3">
@@ -83,27 +120,6 @@ export default function ClientDashboard({ userProfile }: ClientDashboardProps) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Main Action Card */}
-      {!showServiceSelection ? (
-        <Card className="mb-8 border-primary/20 shadow-gold">
-          <CardHeader>
-            <CardTitle className="text-2xl">{t('client.selectService.title')}</CardTitle>
-            <CardDescription>{t('client.selectService.description')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              onClick={() => setShowServiceSelection(true)} 
-              size="lg" 
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-gold"
-            >
-              {t('client.selectService.button')}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <ServiceSelectionForm userProfile={userProfile} onCancel={() => setShowServiceSelection(false)} />
-      )}
 
       {/* My Trips */}
       {trips.length > 0 && (

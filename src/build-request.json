@@ -1,33 +1,76 @@
 {
   "kind": "build_request",
-  "title": "Publish Draft Version 29 to Production",
-  "priority": "high",
+  "title": "Fix and complete driver accept/decline flow for pending trip requests",
+  "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-1",
-      "text": "Publish the currently deployed Draft Version 29 to the production environment, making it the active version served to end users.",
-      "target": "unknown",
+      "id": "REQ-7",
+      "text": "Update the backend trip-request workflow so pending trips assigned to a specific driver are visible to that driver and can be accepted or declined without trapping.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-3"
+          "msg-7"
         ],
         "quotes": [
-          "Yes"
+          "Trying again"
         ]
       },
       "acceptanceCriteria": [
-        "Draft Version 29 is promoted to production and becomes the default version users see.",
-        "A post-publish verification confirms the production app loads successfully and core routes render (Landing page, role selection, dashboards)."
+        "When a customer creates a trip with driverId set to a specific driver and tripStatus = pending, that trip is returned by getPendingTripsOfDriver() for that driver.",
+        "acceptAndClaimTrip(tripId) succeeds when the trip is pending and either (a) driverId is null or (b) driverId equals the caller; it rejects if driverId is set to a different driver.",
+        "declineTrip rejects if the trip is not pending, and rejects if driverId is set to a different driver than the caller.",
+        "After accepting a trip, the trip is updated so tripStatus = accepted and driverId = caller (if it was null).",
+        "After declining a trip, the trip is updated so tripStatus = cancelled."
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "text": "Persist a driver-provided decline reason on the trip record when a driver declines a pending request, and expose it to clients via existing trip retrieval APIs.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "Trying again"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The backend declineTrip API accepts a reason string provided by the driver.",
+        "When a trip is declined, the trip.statusUpdate is set to a cancelled update that contains the decline reason (so the reason is readable in TripDetailsDialog via getTrip/getClientTrips/getDriverTrips).",
+        "The decline reason is preserved when the same trip is fetched again via getTrip(tripId)."
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "text": "Update the frontend driver decline action to call the updated backend declineTrip API with the provided reason, and ensure all affected trip lists refresh correctly after accept/decline.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "Trying again"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Declining from TripDetailsDialog sends the typed reason to the backend (not ignored) and succeeds without a frontend error.",
+        "After a successful accept, the declined/accepted trip no longer appears in the DriverDashboard “New Requests (Pending)” list and appears appropriately in “My Trips”.",
+        "After a successful decline, the trip no longer appears in the DriverDashboard “New Requests (Pending)” list.",
+        "After accept/decline, the customer’s trip list reflects the updated status (accepted or cancelled) via existing polling/invalidation behavior.",
+        "All user-facing strings introduced/changed for this work are in English."
       ]
     }
   ],
   "constraints": [
-    "Do not modify any source code as part of the publish unless a blocking production issue is discovered during verification."
+    "Backend must remain a single-actor Motoko canister with all logic in backend/main.mo.",
+    "Do not edit frontend files under frontend/src/components/ui or any path listed in frontend.immutablePaths.",
+    "Do not add external map/GPS services or third-party auth providers."
   ],
   "nonGoals": [
-    "Implementing new product features",
-    "Refactoring backend or frontend code",
-    "Changing Stripe configuration or secrets"
+    "Implementing real-time updates via WebSockets or push notifications.",
+    "Adding Stripe payment reconciliation/webhooks as part of accept/decline.",
+    "Changing the customer booking flow UI beyond what is required to support the driver accept/decline workflow."
   ],
   "imageRequirements": {
     "required": [],

@@ -117,6 +117,20 @@ export function useGetDriverTrips() {
   });
 }
 
+export function useGetPendingTripsOfDriver() {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<Trip[]>({
+    queryKey: ['pendingDriverTrips'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getPendingTripsOfDriver();
+    },
+    enabled: !!actor && !actorFetching,
+    refetchInterval: 10000,
+  });
+}
+
 export function useGetClientTrips() {
   const { actor, isFetching: actorFetching } = useActor();
 
@@ -141,6 +155,7 @@ export function useGetTrip(tripId?: bigint) {
       return actor.getTrip(tripId);
     },
     enabled: !!actor && !actorFetching && !!tripId,
+    refetchInterval: 10000,
   });
 }
 
@@ -153,9 +168,63 @@ export function useCreateTrip() {
       if (!actor) throw new Error('Actor not available');
       return actor.createTrip(trip);
     },
-    onSuccess: () => {
+    onSuccess: (tripId, trip) => {
+      // Optimistically update the cache with the new trip
+      queryClient.setQueryData<Trip[]>(['clientTrips'], (old) => {
+        if (!old) return [trip];
+        return [...old, trip];
+      });
+      
+      queryClient.setQueryData<Trip[]>(['driverTrips'], (old) => {
+        if (!old) return [trip];
+        return [...old, trip];
+      });
+
+      queryClient.setQueryData<Trip[]>(['pendingDriverTrips'], (old) => {
+        if (!old) return [trip];
+        return [...old, trip];
+      });
+
+      // Still invalidate for eventual consistency
       queryClient.invalidateQueries({ queryKey: ['clientTrips'] });
       queryClient.invalidateQueries({ queryKey: ['driverTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingDriverTrips'] });
+    },
+  });
+}
+
+export function useAcceptAndClaimTrip() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tripId: bigint) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.acceptAndClaimTrip(tripId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingDriverTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['clientTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['trip'] });
+    },
+  });
+}
+
+export function useDeclineTrip() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { tripId: bigint; reason: string }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.declineTrip(params.tripId, params.reason);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['driverTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingDriverTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['clientTrips'] });
+      queryClient.invalidateQueries({ queryKey: ['trip'] });
     },
   });
 }
@@ -173,6 +242,7 @@ export function useUpdateTripStatus() {
       queryClient.invalidateQueries({ queryKey: ['driverTrips'] });
       queryClient.invalidateQueries({ queryKey: ['clientTrips'] });
       queryClient.invalidateQueries({ queryKey: ['trip'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingDriverTrips'] });
     },
   });
 }

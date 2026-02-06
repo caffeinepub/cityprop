@@ -1,35 +1,55 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-05T01:33:25.966Z",
+  "generatedAt": "2026-02-06T01:01:21.535Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
+    "total": 3,
     "implemented": 1,
     "items": [
       {
-        "id": "REQ-1",
-        "summary": "Publish the currently deployed Draft Version 29 to the production environment, making it the active version served to end users.",
+        "id": "REQ-7",
+        "summary": "Update the backend trip-request workflow so pending trips assigned to a specific driver are visible to that driver and can be accepted or declined without trapping.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-8",
+        "summary": "Persist a driver-provided decline reason on the trip record when a driver declines a pending request, and expose it to clients via existing trip retrieval APIs.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-9",
+        "summary": "Update the frontend driver decline action to call the updated backend declineTrip API with the provided reason, and ensure all affected trip lists refresh correctly after accept/decline.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/ops/publish-draft-v29-to-production.md"
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/TripDetailsDialog.tsx"
         ],
         "matchedFiles": [
-          "frontend/ops/publish-draft-v29-to-production.md"
+          "frontend/src/hooks/useQueries.ts"
         ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/ops/publish-draft-v29-to-production.md",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useQueries.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

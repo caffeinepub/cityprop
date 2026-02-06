@@ -1,20 +1,28 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Promote Draft Version 29 to Production (Frontend Verification-Only)",
+  "title": "Fix frontend driver accept/decline flow with decline reason and correct trip list refresh",
   "requirements": [
     {
-      "id": "REQ-1",
-      "summary": "Prepare a frontend-side publish and verification checklist to promote Draft Version 29 to production and confirm core UI routes render successfully after publish (no code changes unless a blocking issue is found).",
+      "id": "REQ-9",
+      "summary": "Send driver decline reason to backend and ensure driver/customer trip lists refresh correctly after accept/decline.",
       "acceptanceCriteria": [
-        "Draft Version 29 is promoted to production and becomes the default version users see.",
-        "A post-publish verification confirms the production app loads successfully and core routes render (Landing page, role selection, dashboards)."
+        "Declining from TripDetailsDialog sends the typed reason to the backend (not ignored) and succeeds without a frontend error.",
+        "After a successful accept, the declined/accepted trip no longer appears in the DriverDashboard “New Requests (Pending)” list and appears appropriately in “My Trips”.",
+        "After a successful decline, the trip no longer appears in the DriverDashboard “New Requests (Pending)” list.",
+        "After accept/decline, the customer’s trip list reflects the updated status (accepted or cancelled) via existing polling/invalidation behavior.",
+        "All user-facing strings introduced/changed for this work are in English."
       ],
       "file_operations": [
         {
-          "path": "frontend/ops/publish-draft-v29-to-production.md",
-          "operation": "create",
-          "description": "Create a production publish + verification checklist focused on frontend behavior only (LandingPage when logged out; RoleSelectionModal and ProfileSetupModal after login; AdminDashboard/ClientDashboard/DriverDashboard rendering paths from frontend/src/App.tsx). Include explicit note to follow the constraint: do not modify any source code unless a blocking production issue is discovered during verification, and if discovered, document the issue and minimal fix scope before implementation."
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Fix useDeclineTrip to call the backend capability declineTrip(tripId, reason) with the provided reason, and keep existing React Query invalidation so driverTrips, pendingDriverTrips, clientTrips, and trip data refresh after a decline."
+        },
+        {
+          "path": "frontend/src/components/TripDetailsDialog.tsx",
+          "operation": "modify",
+          "description": "Ensure the driver decline UI reliably passes the typed declineReason through useDeclineTrip, and reset/close the dialog state appropriately after successful accept/decline so the DriverDashboard pending list and My Trips views reflect updates cleanly (via existing query invalidation/polling)."
         }
       ]
     }

@@ -108,6 +108,7 @@ export interface Trip {
   'distance' : number,
   'translatorNeeded' : boolean,
   'endLocation' : [] | [Coordinates],
+  'declineReason' : [] | [string],
   'helpLoadingItems' : [] | [boolean],
   'tripCostCalculation' : [] | [TripCostCalculation],
   'startLocation' : Coordinates,
@@ -187,6 +188,7 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'acceptAndClaimTrip' : ActorMethod<[bigint], undefined>,
   'addVehicle' : ActorMethod<[GeneralVehicleTag], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'calculateTotalDistance' : ActorMethod<[Principal], number>,
@@ -205,6 +207,7 @@ export interface _SERVICE {
     string
   >,
   'createTrip' : ActorMethod<[Trip], bigint>,
+  'declineTrip' : ActorMethod<[bigint, string], undefined>,
   'disconnectDriverStripeAccount' : ActorMethod<[], undefined>,
   'getAllDriverEarnings' : ActorMethod<[], Array<DriverEarnings>>,
   'getAllDriverProfilesWithPhotos' : ActorMethod<
@@ -222,6 +225,7 @@ export interface _SERVICE {
   'getDriverEarnings' : ActorMethod<[Principal], [] | [DriverEarnings]>,
   'getDriverPhoto' : ActorMethod<[Principal], [] | [ExternalBlob]>,
   'getDriverTrips' : ActorMethod<[], Array<Trip>>,
+  'getPendingTripsOfDriver' : ActorMethod<[], Array<Trip>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getTotalCompletedJobs' : ActorMethod<[Principal], bigint>,
   'getTrip' : ActorMethod<[bigint], [] | [Trip]>,

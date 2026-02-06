@@ -28,6 +28,7 @@ export interface Trip {
     distance: number;
     translatorNeeded: boolean;
     endLocation?: Coordinates;
+    declineReason?: string;
     helpLoadingItems?: boolean;
     tripCostCalculation?: TripCostCalculation;
     startLocation: Coordinates;
@@ -221,6 +222,7 @@ export enum VideoType {
     clientInstructional = "clientInstructional"
 }
 export interface backendInterface {
+    acceptAndClaimTrip(tripId: bigint): Promise<void>;
     addVehicle(vehicle: GeneralVehicleTag): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     calculateTotalDistance(driverId: Principal): Promise<number>;
@@ -230,6 +232,7 @@ export interface backendInterface {
     createDriverStripeAccountId(stripeAccountId: string): Promise<void>;
     createFinalPaymentCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createTrip(trip: Trip): Promise<bigint>;
+    declineTrip(tripId: bigint, reason: string): Promise<void>;
     disconnectDriverStripeAccount(): Promise<void>;
     getAllDriverEarnings(): Promise<Array<DriverEarnings>>;
     getAllDriverProfilesWithPhotos(): Promise<Array<[DriverProfile, ExternalBlob | null]>>;
@@ -244,6 +247,7 @@ export interface backendInterface {
     getDriverEarnings(driverId: Principal): Promise<DriverEarnings | null>;
     getDriverPhoto(driverId: Principal): Promise<ExternalBlob | null>;
     getDriverTrips(): Promise<Array<Trip>>;
+    getPendingTripsOfDriver(): Promise<Array<Trip>>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getTotalCompletedJobs(driverId: Principal): Promise<bigint>;
     getTrip(tripId: bigint): Promise<Trip | null>;

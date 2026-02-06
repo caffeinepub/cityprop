@@ -7,9 +7,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { MapPin, Calendar, DollarSign, User, Car, Clock, CheckCircle, Languages, ShoppingBag, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, User, Car, Clock, CheckCircle, Languages, ShoppingBag, Loader2, ArrowRight, AlertCircle, X } from 'lucide-react';
 import { Trip, TripStatus, PaymentStatus } from '../backend';
-import { useUpdateHelpLoadingItems, useUpdateTripStatus, useGetTrip, useUpdateTripMiles } from '../hooks/useQueries';
+import { useUpdateHelpLoadingItems, useUpdateTripStatus, useGetTrip, useUpdateTripMiles, useAcceptAndClaimTrip, useDeclineTrip } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { toast } from 'sonner';
 import { getTripProgress, getNextStatusForAction } from '../utils/tripProgress';
@@ -30,9 +30,13 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
   const [completionTotal, setCompletionTotal] = useState('');
   const [completionDetails, setCompletionDetails] = useState('');
   const [actualMiles, setActualMiles] = useState('');
+  const [declineReason, setDeclineReason] = useState('');
+  const [showDeclineForm, setShowDeclineForm] = useState(false);
   const updateHelpLoading = useUpdateHelpLoadingItems();
   const updateTripStatus = useUpdateTripStatus();
   const updateTripMiles = useUpdateTripMiles();
+  const acceptTrip = useAcceptAndClaimTrip();
+  const declineTrip = useDeclineTrip();
 
   if (!trip) return null;
 
@@ -42,6 +46,9 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
 
   const tripProgress = getTripProgress(trip.tripStatus, trip.statusUpdate);
   const pricing = calculateTripPricing(trip.miles);
+
+  const isPendingTrip = trip.tripStatus === TripStatus.pending;
+  const isAssignedDriver = trip.driverId?.toString() === identity?.getPrincipal().toString();
 
   const handleSaveHelpLoading = async (answer: boolean) => {
     try {
@@ -72,6 +79,35 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
       toast.success('Trip miles updated successfully');
     } catch (error: any) {
       toast.error('Failed to update miles: ' + error.message);
+    }
+  };
+
+  const handleAcceptTrip = async () => {
+    try {
+      await acceptTrip.mutateAsync(trip.tripId);
+      toast.success('Trip accepted successfully!');
+    } catch (error: any) {
+      toast.error('Failed to accept trip: ' + error.message);
+    }
+  };
+
+  const handleDeclineTrip = async () => {
+    if (!declineReason.trim()) {
+      toast.error('Please provide a reason for declining');
+      return;
+    }
+
+    try {
+      await declineTrip.mutateAsync({
+        tripId: trip.tripId,
+        reason: declineReason,
+      });
+      toast.success('Trip declined');
+      setShowDeclineForm(false);
+      setDeclineReason('');
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error('Failed to decline trip: ' + error.message);
     }
   };
 
@@ -180,6 +216,105 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
 
           <Separator />
 
+          {/* Accept/Decline Actions for Pending Trips */}
+          {isDriver && isPendingTrip && (
+            <>
+              <div className="space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  New Request - Action Required
+                </h3>
+                
+                {!showDeclineForm ? (
+                  <Alert className="border-yellow-600/30 bg-yellow-600/5">
+                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription>
+                      <p className="font-semibold mb-3">This is a new trip request. Would you like to accept it?</p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleAcceptTrip}
+                          disabled={acceptTrip.isPending}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          {acceptTrip.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Accepting...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Accept Request
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowDeclineForm(true)}
+                          className="border-destructive/30 hover:bg-destructive/10"
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Decline Request
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert className="border-destructive/30 bg-destructive/5">
+                    <X className="h-4 w-4 text-destructive" />
+                    <AlertDescription>
+                      <p className="font-semibold mb-3">Decline Trip Request</p>
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="decline-reason" className="text-sm">
+                            Reason for Declining *
+                          </Label>
+                          <Textarea
+                            id="decline-reason"
+                            placeholder="Please provide a clear reason for declining this trip..."
+                            value={declineReason}
+                            onChange={(e) => setDeclineReason(e.target.value)}
+                            className="mt-1"
+                            rows={3}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleDeclineTrip}
+                            disabled={declineTrip.isPending || !declineReason.trim()}
+                            variant="destructive"
+                          >
+                            {declineTrip.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Declining...
+                              </>
+                            ) : (
+                              <>
+                                <X className="mr-2 h-4 w-4" />
+                                Confirm Decline
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowDeclineForm(false);
+                              setDeclineReason('');
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <Separator />
+            </>
+          )}
+
           {/* Trip Progress */}
           <div className="space-y-4">
             <h3 className="font-semibold flex items-center gap-2">
@@ -218,8 +353,8 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
             </div>
           </div>
 
-          {/* Driver Action Panel */}
-          {isDriver && tripProgress.nextAction && trip.tripStatus !== TripStatus.cancelled && (
+          {/* Driver Action Panel (only for accepted/in-progress trips) */}
+          {isDriver && tripProgress.nextAction && trip.tripStatus !== TripStatus.cancelled && trip.tripStatus !== TripStatus.pending && (
             <>
               <Separator />
               <div className="space-y-4">
@@ -308,7 +443,7 @@ export default function TripDetailsDialog({ tripId, open, onOpenChange, isDriver
           )}
 
           {/* Driver Miles Update */}
-          {isDriver && trip.tripStatus !== TripStatus.cancelled && (
+          {isDriver && trip.tripStatus !== TripStatus.cancelled && trip.tripStatus !== TripStatus.pending && (
             <>
               <Separator />
               <div className="space-y-4">

@@ -6,9 +6,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Clock, MapPin, TrendingUp, Car, User, Info, Receipt, CheckCircle, Wallet, Mail, Eye } from 'lucide-react';
+import { DollarSign, Clock, MapPin, TrendingUp, Car, User, Info, Receipt, CheckCircle, Wallet, Mail, Eye, Bell } from 'lucide-react';
 import { UserProfile, TripStatus, PaymentStatus } from '../backend';
-import { useGetCallerDriverProfile, useGetDriverTrips, useGetDriverEarnings } from '../hooks/useQueries';
+import { useGetCallerDriverProfile, useGetDriverTrips, useGetDriverEarnings, useGetPendingTripsOfDriver } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { useI18n } from '../i18n/useI18n';
 import DriverWallet from './DriverWallet';
@@ -24,6 +24,7 @@ export default function DriverDashboard({ userProfile }: DriverDashboardProps) {
   const { identity } = useInternetIdentity();
   const { data: driverProfile, isLoading: driverLoading } = useGetCallerDriverProfile();
   const { data: trips = [], isLoading: tripsLoading } = useGetDriverTrips();
+  const { data: pendingTrips = [], isLoading: pendingLoading } = useGetPendingTripsOfDriver();
   const { data: earnings, isLoading: earningsLoading } = useGetDriverEarnings(identity?.getPrincipal());
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [showWallet, setShowWallet] = useState(false);
@@ -55,7 +56,7 @@ export default function DriverDashboard({ userProfile }: DriverDashboardProps) {
   const netEarnings = totalServicePay - totalCompanyFeeDeduction;
 
   const paidTrips = completedTrips.filter(trip => trip.paymentStatus === PaymentStatus.paid).length;
-  const pendingTrips = completedTrips.filter(trip => trip.paymentStatus === PaymentStatus.pending).length;
+  const pendingPaymentTrips = completedTrips.filter(trip => trip.paymentStatus === PaymentStatus.pending).length;
   const transferredTrips = completedTrips.filter(trip => trip.paymentStatus === PaymentStatus.transferred).length;
 
   const handleViewTrip = (tripId: bigint) => {
@@ -91,6 +92,68 @@ export default function DriverDashboard({ userProfile }: DriverDashboardProps) {
           </div>
         </div>
       </div>
+
+      {/* New Requests (Pending) Section */}
+      {pendingTrips.length > 0 && (
+        <Card className="mb-8 border-yellow-600/30 shadow-gold bg-yellow-600/5">
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center gap-2">
+              <Bell className="h-6 w-6 text-yellow-600" />
+              New Requests (Pending)
+            </CardTitle>
+            <CardDescription>Review and accept new trip requests from customers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingTrips.map((trip) => {
+                const progress = getTripProgress(trip.tripStatus, trip.statusUpdate);
+                return (
+                  <div
+                    key={trip.tripId.toString()}
+                    className="flex items-center justify-between rounded-lg border-2 border-yellow-600/30 bg-yellow-600/5 p-4 hover:bg-yellow-600/10 hover:border-yellow-600/50 transition-all"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline" className="border-yellow-600/50 bg-yellow-600/20 text-yellow-700">
+                          NEW REQUEST
+                        </Badge>
+                        <p className="font-semibold">Trip #{trip.tripId.toString().slice(-6)}</p>
+                        {trip.translatorNeeded && (
+                          <Badge variant="outline" className="border-blue-600/30 bg-blue-600/10 text-blue-600">
+                            Translator
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p className="flex items-center gap-2">
+                          <MapPin className="h-3 w-3 text-primary" />
+                          {trip.locationDetails.pickupAddress || 'Pickup location'}
+                        </p>
+                        <p className="flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-primary" />
+                          {new Date(Number(trip.startTime)).toLocaleString()}
+                        </p>
+                        {trip.specialRequests && (
+                          <p className="text-xs italic">Service: {trip.specialRequests.split('\n')[0].replace('Service: ', '')}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleViewTrip(trip.tripId)}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Review Request
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* How Cityprop Works Video Section */}
       <section className="mb-8">
@@ -155,12 +218,12 @@ export default function DriverDashboard({ userProfile }: DriverDashboardProps) {
 
         <Card className="border-primary/20 hover:shadow-gold transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('driver.stats.activeService')}</CardTitle>
-            <MapPin className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+            <Bell className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{t('driver.stats.none')}</div>
-            <p className="text-xs text-muted-foreground">{t('driver.stats.readyForBookings')}</p>
+            <div className="text-2xl font-bold text-yellow-600">{pendingTrips.length}</div>
+            <p className="text-xs text-muted-foreground">Awaiting your response</p>
           </CardContent>
         </Card>
       </div>
@@ -212,7 +275,7 @@ export default function DriverDashboard({ userProfile }: DriverDashboardProps) {
                 <p className="text-xs text-muted-foreground mb-1">{t('driver.earnings.pending')}</p>
                 <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                   <Clock className="mr-1 h-3 w-3" />
-                  {pendingTrips}
+                  {pendingPaymentTrips}
                 </Badge>
               </div>
               <div>

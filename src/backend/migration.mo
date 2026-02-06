@@ -1,5 +1,6 @@
 import Map "mo:core/Map";
 import Nat "mo:core/Nat";
+import Float "mo:core/Float";
 import Principal "mo:core/Principal";
 
 module {
@@ -8,20 +9,35 @@ module {
     longitude : Float;
   };
 
-  type CostSummary = {
-    total : Float;
-    details : Text;
+  type AppRole = { #customer; #driver };
+
+  type UserProfile = {
+    name : Text;
+    userId : Principal;
+    phoneNumber : Text;
+    userCoordinates : Coordinates;
+    isDriver : Bool;
+    profileImage : ?Blob;
+    appRole : AppRole;
   };
 
-  type StatusUpdate = {
-    #tripAccepted : { message : Text };
-    #enRoute : { message : Text };
-    #arrived : { message : Text };
-    #waiting : { message : Text };
-    #cancelled : { reason : Text };
-    #inProgress : { message : Text };
-    #completed : { summary : CostSummary };
+  type DriverProfile = {
+    name : Text;
+    driverId : Principal;
+    carNumber : Text;
+    driverCoordinates : Coordinates;
+    photo : ?Blob;
+    stripeAccountId : ?Text;
   };
+
+  type GeneralVehicleTag = {
+    vehicleId : Nat;
+    carNumber : Text;
+    driverId : Nat;
+    firingRange : Nat;
+  };
+
+  type TripStatus = { #pending; #accepted; #inProgress; #completed; #cancelled };
 
   type LocationDetails = {
     pickupAddress : ?Text;
@@ -39,8 +55,72 @@ module {
     companyCommission : Float;
   };
 
-  type TripStatus = { #pending; #accepted; #inProgress; #completed; #cancelled };
+  type PaymentBreakdown = {
+    hourlyPay : Float;
+    mileagePay : Float;
+    taxDeduction : Float;
+    commissionDeduction : Float;
+    totalPay : Float;
+    companyCommission : Float;
+    depositShare : Float;
+  };
+
+  type Status = {
+    #tripSuccess : { tripId : Nat };
+    #tripFailed : { reason : Text };
+  };
+
+  type StatusUpdate = {
+    #tripAccepted : { message : Text };
+    #enRoute : { message : Text };
+    #arrived : { message : Text };
+    #waiting : { message : Text };
+    #cancelled : { reason : Text };
+    #inProgress : { message : Text };
+    #completed : { summary : CostSummary };
+  };
+
+  type CostSummary = {
+    total : Float;
+    details : Text;
+  };
+
+  type PickupLocation = {
+    address : Text;
+    coordinates : Coordinates;
+  };
+
+  type LatLng = {
+    lat : Float;
+    lng : Float;
+    timestamp : Int;
+  };
+
   type PaymentStatus = { #pending; #paid; #transferred };
+
+  type DriverEarnings = {
+    driverId : Principal;
+    totalJobs : Nat;
+    totalHours : Float;
+    totalMileage : Float;
+    totalEarnings : Float;
+    paymentBreakdown : [PaymentBreakdown];
+  };
+
+  type CompanyEarnings = {
+    totalCommission : Float;
+    totalDeposits : Float;
+    totalCompanyEarnings : Float;
+  };
+
+  type VideoMetadata = {
+    title : Text;
+    description : Text;
+    filePath : Text;
+    videoType : VideoType;
+  };
+
+  type VideoType = { #clientInstructional; #driverInstructional };
 
   type OldTrip = {
     tripId : Nat;
@@ -51,7 +131,7 @@ module {
     startTime : Int;
     endTime : ?Int;
     tripStatus : TripStatus;
-    distance : ?Float;
+    distance : Float;
     duration : ?Float;
     totalCost : ?Float;
     depositPaid : Bool;
@@ -62,6 +142,7 @@ module {
     specialRequests : Text;
     translatorNeeded : Bool;
     helpLoadingItems : ?Bool;
+    miles : ?Float;
   };
 
   type NewTrip = {
@@ -84,23 +165,45 @@ module {
     specialRequests : Text;
     translatorNeeded : Bool;
     helpLoadingItems : ?Bool;
+    miles : ?Float;
+    declineReason : ?Text;
   };
 
-  type OldActor = { trips : Map.Map<Nat, OldTrip> };
-  type NewActor = { trips : Map.Map<Nat, NewTrip> };
+  type OldActor = {
+    trips : Map.Map<Nat, OldTrip>;
+    vehicles : Map.Map<Nat, GeneralVehicleTag>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+    drivers : Map.Map<Principal, DriverProfile>;
+    driverPhotos : Map.Map<Principal, Blob>;
+    driverEarnings : Map.Map<Principal, DriverEarnings>;
+    videoMetadata : Map.Map<Text, VideoMetadata>;
+    helpLoadingItems : Map.Map<Nat, ?Bool>;
+    locationDetails : Map.Map<Nat, LocationDetails>;
+    translatorNeeded : Map.Map<Nat, Bool>;
+    tripSpecialRequests : Map.Map<Nat, Text>;
+  };
+
+  type NewActor = {
+    trips : Map.Map<Nat, NewTrip>;
+    vehicles : Map.Map<Nat, GeneralVehicleTag>;
+    userProfiles : Map.Map<Principal, UserProfile>;
+    drivers : Map.Map<Principal, DriverProfile>;
+    driverPhotos : Map.Map<Principal, Blob>;
+    driverEarnings : Map.Map<Principal, DriverEarnings>;
+    videoMetadata : Map.Map<Text, VideoMetadata>;
+    helpLoadingItems : Map.Map<Nat, ?Bool>;
+    locationDetails : Map.Map<Nat, LocationDetails>;
+    translatorNeeded : Map.Map<Nat, Bool>;
+    tripSpecialRequests : Map.Map<Nat, Text>;
+  };
 
   public func run(old : OldActor) : NewActor {
-    let trips = old.trips.map<Nat, OldTrip, NewTrip>(
+    let newTrips = old.trips.map<Nat, OldTrip, NewTrip>(
       func(_id, oldTrip) {
-        {
-          oldTrip with
-          distance = switch (oldTrip.distance) {
-            case (null) { 0.0 };
-            case (?value) { value };
-          };
-        };
+        // Add default null for `declineReason`.
+        { oldTrip with declineReason = null };
       }
     );
-    { trips };
+    { old with trips = newTrips };
   };
 };

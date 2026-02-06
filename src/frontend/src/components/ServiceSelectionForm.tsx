@@ -9,9 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MapPin, Loader2, Navigation, User, Car, Info, CreditCard, ShoppingBag, Hospital, PartyPopper, Briefcase, Package, Languages, AlertTriangle } from 'lucide-react';
-import { UserProfile, ShoppingItem, Trip, TripStatus, PaymentStatus } from '../backend';
-import { useCreateDepositCheckoutSession, useGetAllDrivers, useCreateTrip } from '../hooks/useQueries';
+import { MapPin, Loader2, Navigation, User, Car, Info, ExternalLink, ShoppingBag, Hospital, PartyPopper, Briefcase, Package, Languages, AlertTriangle, Calculator, CheckCircle2 } from 'lucide-react';
+import { UserProfile, Trip, TripStatus, PaymentStatus } from '../backend';
+import { useGetAllDrivers, useCreateTrip } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { toast } from 'sonner';
 import { calculateDistance, formatDistance } from '../utils/distance';
@@ -20,6 +20,7 @@ import { calculateTripPricing, isValidMilesForBooking, getMaxDistanceMiles } fro
 interface ServiceSelectionFormProps {
   userProfile: UserProfile;
   onCancel: () => void;
+  onComplete?: (tripId: bigint) => void;
 }
 
 type ServiceType = {
@@ -44,8 +45,9 @@ const SERVICES: ServiceType[] = [
 
 const COMPANY_FEE = 7;
 const MAX_DISTANCE_MILES = getMaxDistanceMiles();
+const PAYPAL_PAYMENT_URL = 'https://www.paypal.com/ncp/payment/SE4296G278LKQ';
 
-export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceSelectionFormProps) {
+export default function ServiceSelectionForm({ userProfile, onCancel, onComplete }: ServiceSelectionFormProps) {
   const { identity } = useInternetIdentity();
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
@@ -55,14 +57,14 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const [tripMiles, setTripMiles] = useState('');
   const [notes, setNotes] = useState('');
   const [translatorNeeded, setTranslatorNeeded] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('card');
   const [gettingPickupLocation, setGettingPickupLocation] = useState(false);
   const [gettingDropoffLocation, setGettingDropoffLocation] = useState(false);
   const [pickupCoordinates, setPickupCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [dropoffCoordinates, setDropoffCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [driverPhotos, setDriverPhotos] = useState<Map<string, string>>(new Map());
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [createdTripId, setCreatedTripId] = useState<bigint | null>(null);
 
-  const createDepositCheckout = useCreateDepositCheckoutSession();
   const createTrip = useCreateTrip();
   const { data: drivers = [], isLoading: driversLoading } = useGetAllDrivers();
 
@@ -92,7 +94,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
 
   const handleCapturePickupLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported');
+      toast.error('Geolocation is not supported by your browser');
       return;
     }
 
@@ -115,7 +117,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
 
   const handleCaptureDropoffLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported');
+      toast.error('Geolocation is not supported by your browser');
       return;
     }
 
@@ -148,6 +150,14 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
 
   const isDistanceBasedService = (): boolean => {
     return selectedService?.id === 'shopping-for' || selectedService?.id === 'pickup';
+  };
+
+  const handleUseCalculatedDistance = () => {
+    const distance = calculateDistanceMiles();
+    if (distance !== null) {
+      setTripMiles(distance.toFixed(1));
+      toast.success('Distance filled from GPS coordinates');
+    }
   };
 
   const calculateEstimate = () => {
@@ -185,8 +195,18 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedService || !pickupAddress.trim() || !dropoffAddress.trim()) {
-      toast.error('Please fill in all required fields');
+    if (!selectedService) {
+      toast.error('Please select a service');
+      return;
+    }
+
+    if (!pickupAddress.trim()) {
+      toast.error('Please enter a pickup address');
+      return;
+    }
+
+    if (!dropoffAddress.trim()) {
+      toast.error('Please enter a dropoff address');
       return;
     }
 
@@ -259,33 +279,14 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
       };
 
       await createTrip.mutateAsync(trip);
+      setCreatedTripId(tripId);
 
-      // Create deposit checkout session
-      const depositItems: ShoppingItem[] = [
-        {
-          productName: `${selectedService.name} - Deposit`,
-          productDescription: `Non-refundable deposit for ${selectedService.name}`,
-          priceInCents: BigInt(estimate.deposit * 100),
-          quantity: BigInt(1),
-          currency: 'usd',
-        },
-      ];
-
-      const baseUrl = `${window.location.protocol}//${window.location.host}`;
-      const session = await createDepositCheckout.mutateAsync({
-        items: depositItems,
-        successUrl: `${baseUrl}/?payment=success&service=${selectedService.id}&driver=${selectedDriverId}&paymentMethod=${paymentMethod}`,
-        cancelUrl: `${baseUrl}/?payment=cancelled`,
-      });
-
-      if (!session?.url) {
-        throw new Error('Stripe session missing url');
-      }
-
-      // Redirect to Stripe checkout for deposit payment
-      window.location.href = session.url;
+      // Show confirmation state with PayPal payment link
+      setShowConfirmation(true);
+      toast.success('Request sent to your driver!');
     } catch (error: any) {
       toast.error('Failed to create booking: ' + error.message);
+      setShowConfirmation(false);
     }
   };
 
@@ -293,6 +294,69 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
   const parsedMiles = parseFloat(tripMiles) || null;
   const showMilesWarning = isDistanceBasedService() && parsedMiles !== null && parsedMiles > MAX_DISTANCE_MILES;
   const canSubmit = !showMilesWarning && (!isDistanceBasedService() || isValidMilesForBooking(parsedMiles));
+  const computedDistance = calculateDistanceMiles();
+
+  // Show confirmation state with PayPal payment link
+  if (showConfirmation) {
+    return (
+      <Card className="mb-8 border-primary/20 shadow-gold-lg">
+        <CardContent className="pt-12 pb-12">
+          <div className="flex flex-col items-center text-center space-y-6">
+            <div className="rounded-full bg-green-600/10 p-6">
+              <CheckCircle2 className="h-16 w-16 text-green-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-foreground">Request Sent!</h2>
+              <p className="text-lg text-muted-foreground">Your driver has been notified</p>
+            </div>
+            <Alert className="border-primary/30 bg-primary/5 max-w-md">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertDescription>
+                Your trip request has been created. Complete payment to confirm your booking.
+              </AlertDescription>
+            </Alert>
+            <div className="w-full max-w-md space-y-3">
+              <Button
+                onClick={() => window.open(PAYPAL_PAYMENT_URL, '_blank')}
+                size="lg"
+                className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+              >
+                <ExternalLink className="mr-2 h-5 w-5" />
+                Pay with PayPal
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Click above to complete your ${estimate.deposit.toFixed(2)} deposit payment via PayPal
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowConfirmation(false);
+                  if (onComplete && createdTripId) {
+                    onComplete(createdTripId);
+                  }
+                }}
+                className="border-primary/30 hover:bg-primary/10"
+              >
+                View Trip Details
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowConfirmation(false);
+                  onCancel();
+                }}
+                className="border-primary/30 hover:bg-primary/10"
+              >
+                Back to Dashboard
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!selectedService) {
     return (
@@ -355,7 +419,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
 
           {/* Driver Selection */}
           <div className="space-y-3">
-            <Label>Select Your Driver *</Label>
+            <Label className="text-base font-semibold">Select Your Driver *</Label>
             {driversLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -413,7 +477,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
 
           {/* Pickup Address */}
           <div className="space-y-2">
-            <Label htmlFor="pickup-address">Pickup Address *</Label>
+            <Label htmlFor="pickup-address" className="text-base font-semibold">Pickup Address *</Label>
             <div className="flex gap-2">
               <Input
                 id="pickup-address"
@@ -437,14 +501,14 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             </div>
             {pickupCoordinates && (
               <p className="text-xs text-muted-foreground">
-                Pickup: Lat: {pickupCoordinates.latitude.toFixed(6)}, Lng: {pickupCoordinates.longitude.toFixed(6)}
+                📍 Pickup GPS: Lat {pickupCoordinates.latitude.toFixed(6)}, Lng {pickupCoordinates.longitude.toFixed(6)}
               </p>
             )}
           </div>
 
           {/* Dropoff Address */}
           <div className="space-y-2">
-            <Label htmlFor="dropoff-address">Dropoff Address *</Label>
+            <Label htmlFor="dropoff-address" className="text-base font-semibold">Dropoff Address *</Label>
             <div className="flex gap-2">
               <Input 
                 id="dropoff-address" 
@@ -468,29 +532,76 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             </div>
             {dropoffCoordinates && (
               <p className="text-xs text-muted-foreground">
-                Dropoff: Lat: {dropoffCoordinates.latitude.toFixed(6)}, Lng: {dropoffCoordinates.longitude.toFixed(6)}
+                📍 Dropoff GPS: Lat {dropoffCoordinates.latitude.toFixed(6)}, Lng {dropoffCoordinates.longitude.toFixed(6)}
               </p>
             )}
           </div>
 
+          {/* Distance Calculator - visible when coordinates are available */}
+          {isDistanceBasedService() && (
+            <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-primary">Distance Calculator</h3>
+              </div>
+              {pickupCoordinates && dropoffCoordinates ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Calculated Distance:</span>
+                    <span className="font-semibold text-foreground">{formatDistance(computedDistance!)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Distance calculated using GPS coordinates (Haversine formula)
+                  </p>
+                </div>
+              ) : (
+                <Alert className="border-muted">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    {!pickupCoordinates && !dropoffCoordinates ? (
+                      'Capture both pickup and dropoff GPS coordinates to calculate distance'
+                    ) : !pickupCoordinates ? (
+                      'Capture pickup GPS coordinates to calculate distance'
+                    ) : (
+                      'Capture dropoff GPS coordinates to calculate distance'
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
           {/* Trip Miles (for distance-based services) */}
           {isDistanceBasedService() && (
             <div className="space-y-2">
-              <Label htmlFor="trip-miles">Trip Miles (manual entry) *</Label>
-              <Input 
-                id="trip-miles" 
-                type="number" 
-                step="0.1" 
-                min="0" 
-                max={MAX_DISTANCE_MILES}
-                value={tripMiles} 
-                onChange={(e) => setTripMiles(e.target.value)} 
-                placeholder="Enter estimated miles"
-                required 
-                className="border-primary/20 focus:ring-primary"
-              />
+              <Label htmlFor="trip-miles" className="text-base font-semibold">Trip Miles *</Label>
+              <div className="flex gap-2">
+                <Input 
+                  id="trip-miles" 
+                  type="number" 
+                  step="0.1" 
+                  min="0" 
+                  max={MAX_DISTANCE_MILES}
+                  value={tripMiles} 
+                  onChange={(e) => setTripMiles(e.target.value)} 
+                  placeholder="Enter estimated miles"
+                  required 
+                  className="flex-1 border-primary/20 focus:ring-primary"
+                />
+                {computedDistance !== null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleUseCalculatedDistance}
+                    className="border-primary/30 hover:bg-primary/10 hover:text-primary whitespace-nowrap"
+                  >
+                    Use Calculated
+                  </Button>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Enter the estimated trip distance in miles (up to {MAX_DISTANCE_MILES} miles)
+                Enter the trip distance in miles (up to {MAX_DISTANCE_MILES} miles)
+                {computedDistance !== null && ' or use the calculated distance from GPS coordinates'}
               </p>
               {showMilesWarning && (
                 <Alert className="border-destructive/50 bg-destructive/10">
@@ -506,7 +617,7 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
           {/* Estimated Hours (only for hourly services) */}
           {selectedService.isHourly && (
             <div className="space-y-2">
-              <Label htmlFor="hours">Estimated Hours *</Label>
+              <Label htmlFor="hours" className="text-base font-semibold">Estimated Hours *</Label>
               <Input 
                 id="hours" 
                 type="number" 
@@ -536,24 +647,9 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             </Label>
           </div>
 
-          {/* Payment Method for Service Fee */}
-          <div className="space-y-3">
-            <Label>Service Fee Payment Method *</Label>
-            <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'cash' | 'card')}>
-              <div className="flex items-center space-x-2 rounded-lg border-2 border-muted bg-background p-3 hover:bg-primary/5 hover:border-primary/30 transition-all">
-                <RadioGroupItem value="cash" id="cash" />
-                <Label htmlFor="cash" className="flex-1 cursor-pointer">Pay by Cash</Label>
-              </div>
-              <div className="flex items-center space-x-2 rounded-lg border-2 border-muted bg-background p-3 hover:bg-primary/5 hover:border-primary/30 transition-all">
-                <RadioGroupItem value="card" id="card" />
-                <Label htmlFor="card" className="flex-1 cursor-pointer">Pay by Card</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes</Label>
+            <Label htmlFor="notes" className="text-base font-semibold">Additional Notes</Label>
             <Textarea 
               id="notes" 
               value={notes} 
@@ -595,11 +691,11 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
             </Alert>
           </div>
 
-          {/* Stripe Payment Info */}
+          {/* Payment Info */}
           <Alert className="border-blue-600/30 bg-blue-600/5">
-            <CreditCard className="h-4 w-4 text-blue-600" />
+            <ExternalLink className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-sm">
-              <strong>Secure Stripe Payment:</strong> You will be redirected to Stripe's secure checkout to pay the deposit by card. The service fee will be paid {paymentMethod === 'cash' ? 'in cash to the driver' : 'by card through Stripe'}.
+              <strong>Payment:</strong> After submitting your request, you'll be able to complete payment via PayPal using the provided link.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -614,18 +710,18 @@ export default function ServiceSelectionForm({ userProfile, onCancel }: ServiceS
           </Button>
           <Button 
             type="submit" 
-            disabled={!canSubmit || createDepositCheckout.isPending || createTrip.isPending || drivers.length === 0} 
+            disabled={!canSubmit || createTrip.isPending || drivers.length === 0} 
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-gold"
           >
-            {(createDepositCheckout.isPending || createTrip.isPending) ? (
+            {createTrip.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                Submitting...
               </>
             ) : (
               <>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Pay Deposit with Stripe
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Submit Request
               </>
             )}
           </Button>

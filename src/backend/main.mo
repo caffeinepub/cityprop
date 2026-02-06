@@ -5,22 +5,17 @@ import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import UserApproval "user-approval/approval";
-
-
 import Map "mo:core/Map";
 import Array "mo:core/Array";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import Nat "mo:core/Nat";
-import Int "mo:core/Int";
-import Text "mo:core/Text";
-import Float "mo:core/Float";
 import Runtime "mo:core/Runtime";
+import Float "mo:core/Float";
+import Text "mo:core/Text";
+import Migration "migration";
 
-
-
-// Apply migration function on upgrade
-
+(with migration = Migration.run)
 actor {
   type Coordinates = {
     latitude : Float;
@@ -52,6 +47,7 @@ actor {
     driverId : Nat;
     firingRange : Nat;
   };
+
   public type TripStatus = { #pending; #accepted; #inProgress; #completed; #cancelled };
 
   public type Trip = {
@@ -75,6 +71,7 @@ actor {
     translatorNeeded : Bool;
     helpLoadingItems : ?Bool;
     miles : ?Float;
+    declineReason : ?Text;
   };
 
   public type LocationDetails = {
@@ -165,7 +162,6 @@ actor {
   include MixinAuthorization(accessControlState);
   include MixinStorage();
 
-  // Maintain persistent state for trips
   let trips = Map.empty<Nat, Trip>();
   let vehicles = Map.empty<Nat, GeneralVehicleTag>();
   let userProfiles = Map.empty<Principal, UserProfile>();
@@ -174,7 +170,6 @@ actor {
   let driverEarnings = Map.empty<Principal, DriverEarnings>();
   let videoMetadata = Map.empty<Text, VideoMetadata>();
 
-  // New persistent fields for trip details
   var helpLoadingItems = Map.empty<Nat, ?Bool>();
   var locationDetails = Map.empty<Nat, LocationDetails>();
   var translatorNeeded = Map.empty<Nat, Bool>();
@@ -851,6 +846,100 @@ actor {
     videoMetadata.values().toArray().filter(func(metadata) {
       metadata.videoType == videoType;
     });
+  };
+
+  ////////////////////////////////////////
+  // New Driver-Centric Methods
+  ////////////////////////////////////////
+  public query ({ caller }) func getPendingTripsOfDriver() : async [Trip] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access this");
+    };
+    if (not isDriver(caller)) {
+      Runtime.trap("Unauthorized: Only drivers can access this");
+    };
+    if (not UserApproval.isApproved(approvalState, caller)) {
+      Runtime.trap("Unauthorized: Only approved drivers can access this");
+    };
+
+    trips.values().toArray().filter(
+      func(t) {
+        t.tripStatus == #pending and (
+          switch (t.driverId) {
+            case (?dId) { dId == caller };
+            case (null) { false };
+          }
+        )
+      },
+    );
+  };
+
+  public shared ({ caller }) func acceptAndClaimTrip(tripId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access this");
+    };
+    if (not isDriver(caller)) {
+      Runtime.trap("Unauthorized: Only drivers can access this");
+    };
+    if (not UserApproval.isApproved(approvalState, caller)) {
+      Runtime.trap("Unauthorized: Only approved drivers can access this");
+    };
+
+    var trip = getTripSync(tripId);
+
+    if (trip.tripStatus != #pending) {
+      Runtime.trap("Unauthorized: Can only accept pending trips");
+    };
+
+    switch (trip.driverId) {
+      case (?assignedDriver) {
+        if (assignedDriver != caller) {
+          Runtime.trap("Unauthorized: Can only accept trips assigned to you");
+        };
+      };
+      case (null) {
+        Runtime.trap("Unauthorized: Trip is not assigned to any driver");
+      };
+    };
+
+    trip := {
+      trip with
+      tripStatus = #accepted;
+    };
+
+    trips.add(tripId, trip);
+  };
+
+  public shared ({ caller }) func declineTrip(tripId : Nat, reason : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access this");
+    };
+    if (not isDriver(caller)) {
+      Runtime.trap("Unauthorized: Only drivers can access this");
+    };
+    if (not UserApproval.isApproved(approvalState, caller)) {
+      Runtime.trap("Unauthorized: Only approved drivers can access this");
+    };
+
+    let trip = getTripSync(tripId);
+
+    if (trip.tripStatus != #pending) {
+      Runtime.trap("Unauthorized: Can only decline pending trips");
+    };
+
+    switch (trip.driverId) {
+      case (?assignedDriver) {
+        if (assignedDriver != caller) {
+          Runtime.trap("Unauthorized: Can only decline trips assigned to you");
+        };
+      };
+      case (null) {
+        Runtime.trap("Unauthorized: Trip is not assigned to any driver");
+      };
+    };
+
+    let updatedTrip = { trip with tripStatus = #cancelled; declineReason = ?reason };
+    trips.add(tripId, updatedTrip);
   };
 
   ////////////////////////////////////////

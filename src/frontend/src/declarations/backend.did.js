@@ -94,6 +94,7 @@ export const Trip = IDL.Record({
   'distance' : IDL.Float64,
   'translatorNeeded' : IDL.Bool,
   'endLocation' : IDL.Opt(Coordinates),
+  'declineReason' : IDL.Opt(IDL.Text),
   'helpLoadingItems' : IDL.Opt(IDL.Bool),
   'tripCostCalculation' : IDL.Opt(TripCostCalculation),
   'startLocation' : Coordinates,
@@ -223,6 +224,7 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'acceptAndClaimTrip' : IDL.Func([IDL.Nat], [], []),
   'addVehicle' : IDL.Func([GeneralVehicleTag], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'calculateTotalDistance' : IDL.Func(
@@ -252,6 +254,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'createTrip' : IDL.Func([Trip], [IDL.Nat], []),
+  'declineTrip' : IDL.Func([IDL.Nat, IDL.Text], [], []),
   'disconnectDriverStripeAccount' : IDL.Func([], [], []),
   'getAllDriverEarnings' : IDL.Func([], [IDL.Vec(DriverEarnings)], ['query']),
   'getAllDriverProfilesWithPhotos' : IDL.Func(
@@ -278,6 +281,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getDriverTrips' : IDL.Func([], [IDL.Vec(Trip)], ['query']),
+  'getPendingTripsOfDriver' : IDL.Func([], [IDL.Vec(Trip)], ['query']),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
   'getTotalCompletedJobs' : IDL.Func([IDL.Principal], [IDL.Nat], ['query']),
   'getTrip' : IDL.Func([IDL.Nat], [IDL.Opt(Trip)], ['query']),
@@ -418,6 +422,7 @@ export const idlFactory = ({ IDL }) => {
     'distance' : IDL.Float64,
     'translatorNeeded' : IDL.Bool,
     'endLocation' : IDL.Opt(Coordinates),
+    'declineReason' : IDL.Opt(IDL.Text),
     'helpLoadingItems' : IDL.Opt(IDL.Bool),
     'tripCostCalculation' : IDL.Opt(TripCostCalculation),
     'startLocation' : Coordinates,
@@ -541,6 +546,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'acceptAndClaimTrip' : IDL.Func([IDL.Nat], [], []),
     'addVehicle' : IDL.Func([GeneralVehicleTag], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'calculateTotalDistance' : IDL.Func(
@@ -570,6 +576,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createTrip' : IDL.Func([Trip], [IDL.Nat], []),
+    'declineTrip' : IDL.Func([IDL.Nat, IDL.Text], [], []),
     'disconnectDriverStripeAccount' : IDL.Func([], [], []),
     'getAllDriverEarnings' : IDL.Func([], [IDL.Vec(DriverEarnings)], ['query']),
     'getAllDriverProfilesWithPhotos' : IDL.Func(
@@ -604,6 +611,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getDriverTrips' : IDL.Func([], [IDL.Vec(Trip)], ['query']),
+    'getPendingTripsOfDriver' : IDL.Func([], [IDL.Vec(Trip)], ['query']),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
     'getTotalCompletedJobs' : IDL.Func([IDL.Principal], [IDL.Nat], ['query']),
     'getTrip' : IDL.Func([IDL.Nat], [IDL.Opt(Trip)], ['query']),
